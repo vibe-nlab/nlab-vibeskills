@@ -176,6 +176,10 @@ Golden Path — создай его, не жди отдельной просьб
   [`templates/frontend-next-14-starter/`](templates/frontend-next-14-starter/);
 - агентов и схему агентов — на pydantic-ai (дока для агента:
   <https://ai.pydantic.dev/llms.txt>);
+- LLM из кода — только через OpenAI-совместимый API, **не** через
+  CLI-инструменты: OpenRouter (свой ключ) или гейт nlab
+  `BASE_URL="https://ai.nlabstudio.ru/v1"` (ключ — у тех же ответственных);
+  BASE_URL/ключ только в env;
 - git-репозиторий проекта создаётся централизованно: пользователь просит
   [@sanchezgl](https://t.me/sanchezgl) или
   [@KirillBorovkov](https://t.me/KirillBorovkov) создать репо и передаёт им
