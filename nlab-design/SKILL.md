@@ -10,7 +10,7 @@ stage: design
 depends_on: [shadcn]
 autonomy_level: R4
 last_reviewed: 2026-07-26
-registry_url: <путь/URL каталога shared-skills>
+registry_url: https://github.com/sber-nlab/nlab-vibeskills
 update_check: per_session
 allowed-tools: Bash(npx shadcn@latest *), Bash(pnpm dlx shadcn@latest *), Bash(bunx --bun shadcn@latest *)
 ---

@@ -10,7 +10,7 @@ stage: prep
 depends_on: []
 autonomy_level: R3
 last_reviewed: 2026-07-26
-registry_url: <путь/URL каталога shared-skills>
+registry_url: https://github.com/sber-nlab/nlab-vibeskills
 update_check: per_session
 ---
 
