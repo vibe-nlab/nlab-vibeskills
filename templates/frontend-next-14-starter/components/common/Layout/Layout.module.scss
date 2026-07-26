@@ -1,0 +1,19 @@
+
+
+.root {
+  display: flex;
+  height: 100vh;
+  overflow: hidden;
+}
+
+.wrapper {
+  position: relative;
+  flex: 1;
+  height: 100%;
+  overflow-y: auto;
+  transition: margin-left 200ms;
+
+  &.withSidebar {
+    margin-left: 260px;
+  }
+}

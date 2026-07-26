@@ -1,0 +1,86 @@
+# ШАБЛОН compose-файла для Dokploy. Адаптируй под проект: имена сервисов,
+# порты, БД, переменные. Комментарии-пояснения можно оставлять — они
+# помогают следующему деплою.
+#
+# Ключевые принципы (подробно — в SKILL.md скилла dokploy-prep):
+# - Без Traefik-лейблов и без ports: наружу — роутинг и TLS делает Dokploy
+#   через вкладку Domains (домен → сервис → внутренний порт).
+# - Веб-сервисы: в dokploy-network + internal; БД: только internal.
+# - Обязательные env — fail-loud через ${VAR:?...}.
+
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "5"
+
+services:
+  postgres:
+    image: postgres:15
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: app
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD не задан в Dokploy env}
+      POSTGRES_DB: app
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks: [internal]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U app -d app"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    logging: *default-logging
+
+  # One-shot: миграции при каждом деплое. Идемпотентно. Приложения стартуют
+  # только после его успеха (service_completed_successfully).
+  migrate:
+    build: .
+    restart: "no"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://app:${POSTGRES_PASSWORD}@postgres:5432/app
+    command: sh -c "alembic upgrade head"
+    networks: [internal]
+    logging: *default-logging
+
+  backend:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    environment:
+      DATABASE_URL: postgresql://app:${POSTGRES_PASSWORD}@postgres:5432/app
+      SECRET_KEY: ${SECRET_KEY:?SECRET_KEY не задан в Dokploy env}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      # Кросс-ссылки между сервисами — из доменных переменных, не хардкодом:
+      # FRONTEND_URL: https://${FRONTEND_DOMAIN}
+    command: >
+      uvicorn app.main:app
+      --host 0.0.0.0 --port 8000
+      --workers ${UVICORN_WORKERS:-2}
+      --proxy-headers --forwarded-allow-ips=*
+    networks: [internal, dokploy-network]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys; r=urllib.request.urlopen('http://127.0.0.1:8000/healthz', timeout=3); sys.exit(0 if r.status==200 else 1)"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    logging: *default-logging
+
+volumes:
+  postgres_data:
+
+networks:
+  # Внешняя сеть Dokploy (в ней живёт Traefik). Создана Dokploy — только
+  # подключаемся. Домен на этот сервис заводится через Dokploy Domains:
+  # host → serviceName=backend → port=8000, HTTPS + Let's Encrypt.
+  dokploy-network:
+    external: true
+  internal:

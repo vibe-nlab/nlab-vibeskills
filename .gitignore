@@ -1,0 +1,11 @@
+# macOS
+.DS_Store
+
+# Локальные реестры с секретами — никогда не коммитить (см. dokploy/SKILL.md)
+dokploy/servers.md
+**/servers.md
+*-creds.md
+
+# Артефакты сборки темплейтов
+templates/**/node_modules/
+templates/**/.next/

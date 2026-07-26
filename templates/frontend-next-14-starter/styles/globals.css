@@ -1,0 +1,43 @@
+@import "tailwindcss";
+
+html,
+body,
+#__next {
+  padding: 0;
+  margin: 0;
+  color: var(--color-black);
+  background: #101828;
+  font-family: "Geologica" !important;
+  color: var(--sf-primary-color, #1c1b1f);
+  color: white;
+  height: 100%;
+}
+
+/* ::selection {
+  background: var(--color-dark-goldenrod);
+} */
+
+body {
+
+  height: 100%;
+  position: relative;
+  font-weight: 300;
+  /* font-family: "Geologica" !important; */
+}
+
+#__next {
+  /* background: var(--color-ebony); */
+  /* font-family: "Geologica" !important; */
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
