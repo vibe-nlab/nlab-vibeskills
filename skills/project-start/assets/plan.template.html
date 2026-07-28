@@ -1,0 +1,159 @@
+<!doctype html>
+<!--
+  ГЕНЕРИРУЕТСЯ. Источник — project-docs/intent.md и project-docs/feature-list.json.
+  Руками не править: правки затрутся при следующей пересборке.
+  Создаётся на этапе /nlab:project-start, пересобирается на /nlab:code-design.
+
+  Язык — всегда простой, независимо от того, разработчик пользователь или нет:
+  этот файл существует именно для того, чтобы объяснить проект человеку.
+  Уровень подачи влияет на ответы в терминале, а не на этот документ.
+
+  Плейсхолдеры {{...}} заполняет скилл. Разделы, помеченные STAGE-2,
+  на этапе Discovery опускаются целиком — не оставляй пустых заголовков.
+-->
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{PROJECT_NAME}} — что это и как будет работать</title>
+<style>
+  :root {
+    --bg:#fff; --fg:#1c1c1a; --muted:#6b6b66; --line:#e3e3df; --card:#f7f7f5;
+    --accent:#2e6bd4; --done:#2e7d5b; --wip:#b8860b; --todo:#8a8a84;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg:#272726; --fg:#eceae5; --muted:#a3a099; --line:#3d3d3a; --card:#2f2f2d;
+      --accent:#79a6f2; --done:#6ec49a; --wip:#e0b64a; --todo:#8a8a84;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg:#272726; --fg:#eceae5; --muted:#a3a099; --line:#3d3d3a; --card:#2f2f2d;
+    --accent:#79a6f2; --done:#6ec49a; --wip:#e0b64a; --todo:#8a8a84;
+  }
+  :root[data-theme="light"] {
+    --bg:#fff; --fg:#1c1c1a; --muted:#6b6b66; --line:#e3e3df; --card:#f7f7f5;
+    --accent:#2e6bd4; --done:#2e7d5b; --wip:#b8860b; --todo:#8a8a84;
+  }
+  * { box-sizing:border-box; }
+  body {
+    margin:0; padding:2.5rem 1.25rem 4rem; background:var(--bg); color:var(--fg);
+    font:17px/1.65 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  }
+  main { max-width:52rem; margin:0 auto; }
+  h1 { font-size:2rem; line-height:1.2; margin:0 0 .4rem; }
+  .lead { font-size:1.15rem; color:var(--muted); margin:0 0 2.5rem; }
+  h2 {
+    font-size:1.25rem; margin:2.75rem 0 .5rem; padding-top:1.5rem;
+    border-top:1px solid var(--line);
+  }
+  h2:first-of-type { border-top:none; padding-top:0; }
+  .hint { color:var(--muted); font-size:.95rem; margin:.1rem 0 1rem; }
+  .card {
+    background:var(--card); border:1px solid var(--line);
+    border-radius:.7rem; padding:1.1rem 1.35rem; margin:1rem 0;
+  }
+  ol, ul { padding-left:1.3rem; }
+  li { margin:.45rem 0; }
+  ol.steps > li { margin:.9rem 0; }
+  ol.steps b { display:block; }
+  .wrap { overflow-x:auto; }
+  table { border-collapse:collapse; width:100%; min-width:34rem; }
+  th, td { text-align:left; padding:.6rem .7rem; border-bottom:1px solid var(--line); vertical-align:top; }
+  th { font-size:.82rem; text-transform:uppercase; letter-spacing:.04em; color:var(--muted); font-weight:600; }
+  .status { white-space:nowrap; font-weight:600; font-size:.9rem; }
+  .status.done{color:var(--done);} .status.wip{color:var(--wip);} .status.todo{color:var(--todo);}
+  .ask { border-left:3px solid var(--accent); padding-left:1rem; margin:1rem 0; }
+  footer { margin-top:3.5rem; padding-top:1rem; border-top:1px solid var(--line); color:var(--muted); font-size:.85rem; }
+  code { background:var(--card); padding:.1rem .35rem; border-radius:.25rem; font-size:.9em; }
+</style>
+</head>
+<body>
+<main>
+
+  <h1>{{PROJECT_NAME}}</h1>
+  <p class="lead">{{ONE_LINER}}</p>
+
+  <h2>В чём суть</h2>
+  <p class="hint">Какую задачу решаем и почему она вообще стоит.</p>
+  <div class="card">{{ESSENCE}}</div>
+
+  <h2>Что система будет делать</h2>
+  <p class="hint">Простыми словами, без технических подробностей.</p>
+  <ul>
+    {{#CAPABILITIES}}<li>{{TEXT}}</li>{{/CAPABILITIES}}
+  </ul>
+
+  <h2>Как это будет работать</h2>
+  <p class="hint">Путь от действия пользователя до результата, по шагам.</p>
+  <ol class="steps">
+    {{#FLOW}}<li><b>{{STEP_TITLE}}</b>{{STEP_TEXT}}</li>{{/FLOW}}
+  </ol>
+
+  <h2>Что получится на выходе</h2>
+  <div class="card">{{DELIVERABLE}}</div>
+
+  <h2>Как поймём, что готово</h2>
+  <p class="hint">Проверяемые условия приёмки — из них потом собираются задачи.</p>
+  <ol>
+    {{#CRITERIA}}<li>{{TEXT}}</li>{{/CRITERIA}}
+  </ol>
+
+  <h2>Что в работу не входит</h2>
+  <p class="hint">Зафиксировано специально, чтобы объём не расползался молча.</p>
+  <ul>
+    {{#OUT_OF_SCOPE}}<li>{{TEXT}}</li>{{/OUT_OF_SCOPE}}
+  </ul>
+
+  <!-- STAGE-2: появляется после /nlab:code-design. На Discovery раздел опустить. -->
+  {{#ARCHITECTURE}}
+  <h2>Как устроено внутри</h2>
+  <p class="hint">Без кода — только из каких частей состоит и кто за что отвечает.</p>
+  <div class="wrap">
+    <table>
+      <thead><tr><th>Часть</th><th>За что отвечает</th></tr></thead>
+      <tbody>
+        {{#PARTS}}<tr><td>{{PART}}</td><td>{{RESPONSIBILITY}}</td></tr>{{/PARTS}}
+      </tbody>
+    </table>
+  </div>
+  {{/ARCHITECTURE}}
+
+  <h2>Задачи</h2>
+  <p class="hint">Собрано из списка задач проекта; статусы обновляются по ходу.</p>
+  <div class="wrap">
+    <table>
+      <thead><tr><th>Что делаем</th><th>Готово, когда</th><th>Статус</th></tr></thead>
+      <tbody>
+        {{#TASKS}}
+        <tr><td>{{TITLE}}</td><td>{{ACCEPTANCE}}</td>
+            <td class="status {{STATUS_CLASS}}">{{STATUS_LABEL}}</td></tr>
+        {{/TASKS}}
+      </tbody>
+    </table>
+  </div>
+
+  {{#OPEN_QUESTIONS}}
+  <h2>Что пока не решено</h2>
+  <ul>{{#ITEMS}}<li>{{TEXT}}</li>{{/ITEMS}}</ul>
+  {{/OPEN_QUESTIONS}}
+
+  {{#BLOCKERS}}
+  <h2>Что нужно от вас</h2>
+  <p class="hint">Без этого работа дальше не пойдёт.</p>
+  {{#ITEMS}}<div class="ask">{{TEXT}}</div>{{/ITEMS}}
+  {{/BLOCKERS}}
+
+  <footer>
+    Собрано автоматически из <code>project-docs/intent.md</code> и
+    <code>project-docs/feature-list.json</code>, коммит {{SOURCE_COMMIT}},
+    {{GENERATED_AT}}, этап: {{STAGE}}.<br>
+    Файл пересобирается на каждом этапе — правки в нём не сохраняются.
+    Статусы: <span class="status done">готово</span> ·
+    <span class="status wip">в работе</span> ·
+    <span class="status todo">не начато</span>.
+  </footer>
+
+</main>
+</body>
+</html>

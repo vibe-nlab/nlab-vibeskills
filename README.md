@@ -45,7 +45,7 @@ git (`gh auth login` или SSH-ключ).
 
 | Скилл | Вызов | Этап | Назначение |
 |---|---|---|---|
-| `project-start` | `/nlab:project-start` | discovery | старт нового проекта: Discovery → `intent.md` и `SPEC.md`, каркас проекта, дефолтный стек, проверка доступов |
+| `project-start` | `/nlab:project-start` | discovery | старт проекта: уровень подачи, Discovery → `intent.md` и `spec/SPEC.md`, каркас, стек, доступы, `PLAN.html` для человека |
 | `code-design` | `/nlab:code-design` | design | спецификация (SDD) в `spec/` и архитектура бэкенда (DDD) в `arch/`: единый язык, слои, ADR |
 | `design-ui` | `/nlab:design-ui` | design (UI) | дизайн-система NeuroLab поверх shadcn/ui (Montserrat + 112.5%, графитовая тёмная тема) |
 | `dokploy-prep` | `/nlab:dokploy-prep` | prep | подготовка репозитория к деплою: `docker-compose.dokploy.yml`, `.env.dokploy.example`, `DEPLOY_DOKPLOY.md` |
