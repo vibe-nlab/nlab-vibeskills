@@ -1,4 +1,4 @@
-# /dokploy-prep — подготовка проекта к деплою на Dokploy
+# /nlab:dokploy-prep — подготовка проекта к деплою на Dokploy
 
 Скилл для Claude Code. Прогоняете свой репозиторий через него — Claude
 подготовит проект к деплою на Dokploy: создаст `docker-compose.dokploy.yml`,
@@ -8,27 +8,13 @@ Dockerfile, `.dockerignore` и healthcheck'и. Дальше вы просто о
 
 ## Установка
 
-1. Скопируйте папку целиком в скиллы Claude Code:
-
-   ```bash
-   cp -r dokploy-prep ~/.claude/skills/dokploy-prep
-   ```
-
-2. Добавьте в `~/.claude/CLAUDE.md` (создайте файл, если его нет):
-
-   ```markdown
-   # dokploy-prep
-   - **dokploy-prep** (`~/.claude/skills/dokploy-prep/SKILL.md`) — подготовка
-     репозитория к деплою на Dokploy (compose/env/доки по конвенциям).
-     Trigger: `/dokploy-prep`
-   When the user types `/dokploy-prep`, invoke the Skill tool with
-   `skill: "dokploy-prep"` before doing anything else.
-   ```
+Скилл входит в плагин `nlab` — ставится вместе со всем пакетом, отдельно
+копировать ничего не нужно. См. [README реестра](../../README.md).
 
 ## Использование
 
 1. Откройте Claude Code в корне вашего проекта.
-2. Наберите `/dokploy-prep`.
+2. Наберите `/nlab:dokploy-prep`.
 3. Отвечайте на вопросы (какие сервисы, что наружу, какая БД) — Claude
    составит план и создаст файлы.
 4. Проверьте результат, закоммитьте и запушьте (Claude предложит сделать

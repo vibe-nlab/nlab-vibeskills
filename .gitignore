@@ -6,6 +6,6 @@ dokploy/servers.md
 **/servers.md
 *-creds.md
 
-# Артефакты сборки темплейтов
-templates/**/node_modules/
-templates/**/.next/
+# Артефакты сборки темплейтов внутри скиллов
+skills/**/assets/**/node_modules/
+skills/**/assets/**/.next/

@@ -1,7 +1,7 @@
 ---
 name: dokploy
 title: "Deploy: деплой и эксплуатация сервисов на Dokploy"
-description: Агент по деплою и эксплуатации сервисов на Dokploy-серверах пользователя. Деплой приложений из GitHub (проект → compose → env → домены → deploy → health-проверка), redeploy, логи, диагностика упавших сервисов, обновление env и доменов. При первом запуске подключает сервер (URL + API-ключ от пользователя) и заводит локальный реестр servers.md. Вызывается командой /dokploy.
+description: Агент по деплою и эксплуатации сервисов на Dokploy-серверах пользователя. Деплой приложений из GitHub (проект → compose → env → домены → deploy → health-проверка), redeploy, логи, диагностика упавших сервисов, обновление env и доменов. При первом запуске подключает сервер (URL + API-ключ от пользователя) и заводит локальный реестр servers.md. Вызывается командой /nlab:dokploy.
 owner: EVR_AG
 version: 1.0.0
 status: in-use
@@ -35,7 +35,7 @@ update_check: pre_deploy
 |---|---|---|---|
 | Репозиторий на GitHub, код запушен (`git status`, `git rev-parse HEAD origin/<branch>`) | да | пользователь | остановиться, попросить запушить — Dokploy тянет из GitHub, локальные правки не попадут |
 | Для проектов компании: репозиторий — выданный централизованно (см. project_setup_best_practices.md п.5: создаёт ответственный по запросу в Telegram) | да — для Golden-Path-проектов | ответственные @sanchezgl / @KirillBorovkov | остановиться, попросить пользователя запросить репо и передать свой GitHub-никнейм; свой репозиторий не создавать |
-| `docker-compose.dokploy.yml` + `.env.dokploy.example` + `DEPLOY_DOKPLOY.md` | да (для нового деплоя) | скилл `dokploy-prep` | запустить `/dokploy-prep`, если установлен; иначе подготовить самому по его конвенциям, закоммитить — и только потом продолжать |
+| `docker-compose.dokploy.yml` + `.env.dokploy.example` + `DEPLOY_DOKPLOY.md` | да (для нового деплоя) | скилл `dokploy-prep` | запустить `/nlab:dokploy-prep`, если установлен; иначе подготовить самому по его конвенциям, закоммитить — и только потом продолжать |
 | `servers.md` (реестр серверов, см. п.6 Шаг 0) | да | этот скилл (онбординг) | провести онбординг сервера — Шаг 0 |
 | `EVIDENCE.md` проекта | да — для проектов, ведущихся по Golden Path | скилл Prep | остановиться и предупредить: деплой без evidence — отклонение от процесса, нужен явный ОК пользователя; ОК зафиксировать в `EVIDENCE.md` |
 
@@ -221,7 +221,7 @@ Deploy — конец цепочки Golden Path; дальше — эксплу�
 ## 11. Пример (вход → выход)
 
 **Вход**: репо `github.com/acme/notes-api` (web + postgres,
-`docker-compose.dokploy.yml` от `/dokploy-prep`, код запушен), сервер
+`docker-compose.dokploy.yml` от `/nlab:dokploy-prep`, код запушен), сервер
 `ams-1` из `servers.md` с wildcard `*.example.ru`.
 
 **Выход**: проект `notes-api` в Dokploy; домен `notes.example.ru` →

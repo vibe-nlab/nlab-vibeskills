@@ -1,0 +1,28 @@
+{
+  "name": "nlab-vibeskills",
+  "owner": {
+    "name": "NeuroLab (sber-nlab)",
+    "url": "https://github.com/sber-nlab"
+  },
+  "metadata": {
+    "description": "Приватный реестр скиллов NeuroLab",
+    "version": "1.0.0"
+  },
+  "plugins": [
+    {
+      "name": "nlab",
+      "source": "./",
+      "description": "Скиллы NeuroLab: старт проекта по Golden Path (Discovery + каркас + стек), дизайн-система UI поверх shadcn, подготовка репозитория к деплою и деплой на Dokploy. Ставятся одним пакетом, вызываются как /nlab:<скилл>.",
+      "version": "1.0.0",
+      "category": "workflow",
+      "keywords": [
+        "nlab",
+        "neurolab",
+        "dokploy",
+        "deploy",
+        "shadcn",
+        "design-system"
+      ]
+    }
+  ]
+}

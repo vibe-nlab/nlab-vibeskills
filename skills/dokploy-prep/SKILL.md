@@ -1,7 +1,7 @@
 ---
 name: dokploy-prep
 title: "Prep: подготовка репозитория к деплою на Dokploy"
-description: Подготовка репозитория/сервиса к деплою на Dokploy — создать docker-compose.dokploy.yml, .env.dokploy.example и DEPLOY_DOKPLOY.md по конвенциям, проверить Dockerfile и healthcheck'и, привести всё к правилам (без Traefik-лейблов, без хост-портов). Вызывается командой /dokploy-prep. Сам деплой делает тот, кто хостит, — ему передаётся подготовленный репозиторий.
+description: Подготовка репозитория/сервиса к деплою на Dokploy — создать docker-compose.dokploy.yml, .env.dokploy.example и DEPLOY_DOKPLOY.md по конвенциям, проверить Dockerfile и healthcheck'и, привести всё к правилам (без Traefik-лейблов, без хост-портов). Вызывается командой /nlab:dokploy-prep. Сам деплой делает тот, кто хостит, — ему передаётся подготовленный репозиторий.
 owner: EVR_AG
 version: 1.0.0
 status: in-use
@@ -20,7 +20,7 @@ update_check: per_session
 
 Prep-этап Golden Path: превращает работающий репозиторий в готовый к
 деплою на Dokploy артефакт — три файла по конвенциям + приведённый в
-порядок Dockerfile, — чтобы тот, кто хостит (человек или скилл `/dokploy`),
+порядок Dockerfile, — чтобы тот, кто хостит (человек или скилл `/nlab:dokploy`),
 задеплоил без доработок и без «переводчика».
 
 ## 2. Входные артефакты (Inputs) — ОБЯЗАТЕЛЬНО
@@ -38,12 +38,12 @@ Prep-этап Golden Path: превращает работающий репоз�
 
 | Артефакт | Обязателен? | Формат | Кто читает дальше |
 |---|---|---|---|
-| `docker-compose.dokploy.yml` | да | стек для Dokploy — ровно с этим именем, его ждёт деплой как Compose Path | скилл `/dokploy` / хостящий |
+| `docker-compose.dokploy.yml` | да | стек для Dokploy — ровно с этим именем, его ждёт деплой как Compose Path | скилл `/nlab:dokploy` / хостящий |
 | `.env.dokploy.example` | да | шаблон переменных Environment без значений секретов | хостящий |
 | `DEPLOY_DOKPLOY.md` | да | короткий гайд: домен↔сервис↔порт, обязательные env, как проверить | хостящий |
 | Dockerfile + `.dockerignore` | да | собирается из корня без внешних аргументов | Dokploy build |
-| Запись в `EVIDENCE.md` | да | что проверено и как (п.8), append-only | скилл `/dokploy` (не стартует без evidence) |
-| Git commit + push | да | всё созданное закоммичено — Dokploy тянет из GitHub | скилл `/dokploy` |
+| Запись в `EVIDENCE.md` | да | что проверено и как (п.8), append-only | скилл `/nlab:dokploy` (не стартует без evidence) |
+| Git commit + push | да | всё созданное закоммичено — Dokploy тянет из GitHub | скилл `/nlab:dokploy` |
 
 Не переиспользуй `docker-compose.yml` / `docker-compose.prod.yml` — dev- и
 prod-стеки живут отдельно, Dokploy-вариант всегда свой.
@@ -129,7 +129,7 @@ prod-стеки живут отдельно, Dokploy-вариант всегда
    проверено.
 7. Финальный чеклист пользователю: что создано, таблица доменов, какие env
    обязательны — и напомни передать ссылку на репозиторий тому, кто будет
-   хостить: дальше деплой на его стороне (скилл `/dokploy`).
+   хостить: дальше деплой на его стороне (скилл `/nlab:dokploy`).
 
 ## 7. Уровень автономии и обоснование
 
@@ -153,7 +153,7 @@ Append-only запись в `EVIDENCE.md` (проверяемые формули
 
 ## 9. Передача следующему скиллу (Handoff)
 
-Передаётся скиллу **`/dokploy`** (или человеку, который хостит).
+Передаётся скиллу **`/nlab:dokploy`** (или человеку, который хостит).
 Обязательно на выходе: запушенный репозиторий с
 `docker-compose.dokploy.yml`, `.env.dokploy.example`, `DEPLOY_DOKPLOY.md`
 и записью в `EVIDENCE.md` — без неё деплой-скилл не стартует.

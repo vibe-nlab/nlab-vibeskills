@@ -1,15 +1,15 @@
 ---
-name: nlab-design
-title: "Design: дизайн-система NeuroLab для shadcn-интерфейсов"
-description: Дизайн-система NeuroLab поверх shadcn/ui — построить UI оригинальным скиллом shadcn (обязательная зависимость, ставится отдельно), затем применить фирменные правки — шрифт Montserrat (самохост, кириллица) и укрупнённый размер (root 112.5% → 18px) в обеих темах; в тёмной теме — графитово-серые/тёпло-бежевые нейтрали (#272726 и производные токены) вместо дефолтной чёрной; в светлой цвета не трогать. Вызывается командой /nlab-design. Использовать, когда пользователь просит «дизайн NeuroLab», «в стиле nlab», «наш графит» или собирает shadcn-интерфейс, который должен выглядеть по конвенциям NeuroLab.
+name: design-ui
+title: "Design UI: дизайн-система NeuroLab для shadcn-интерфейсов"
+description: Дизайн-система NeuroLab поверх shadcn/ui — построить UI оригинальным скиллом shadcn (обязательная зависимость, ставится отдельно), затем применить фирменные правки — шрифт Montserrat (самохост, кириллица) и укрупнённый размер (root 112.5% → 18px) в обеих темах; в тёмной теме — графитово-серые/тёпло-бежевые нейтрали (#272726 и производные токены) вместо дефолтной чёрной; в светлой цвета не трогать. Вызывается командой /nlab:design-ui. Использовать, когда пользователь просит «дизайн NeuroLab», «в стиле nlab», «наш графит» или собирает shadcn-интерфейс, который должен выглядеть по конвенциям NeuroLab.
 owner: EVR_AG
-version: 2.0.0
+version: 1.0.0
 status: in-use
 scope: все shadcn-интерфейсы NeuroLab (новые и существующие проекты)
 stage: design
 depends_on: [shadcn]
 autonomy_level: R4
-last_reviewed: 2026-07-26
+last_reviewed: 2026-07-28
 registry_url: https://github.com/sber-nlab/nlab-vibeskills
 update_check: per_session
 allowed-tools: Bash(npx shadcn@latest *), Bash(pnpm dlx shadcn@latest *), Bash(bunx --bun shadcn@latest *)
@@ -184,7 +184,7 @@ Append-only запись в `EVIDENCE.md` (проверяемые формули
 
 ## 9. Передача следующему скиллу (Handoff)
 
-Передаётся этапу **Prep** (для деплой-цепочки — `/dokploy-prep`).
+Передаётся этапу **Prep** (для деплой-цепочки — `/nlab:dokploy-prep`).
 Обязательно на выходе: собранный UI, прошедший чеклист п.6, закоммиченный,
 с записью в `EVIDENCE.md`.
 
