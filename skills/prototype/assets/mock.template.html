@@ -1,0 +1,190 @@
+<!doctype html>
+<!--
+  МАКЕТ (mock). Самодостаточный файл: открывается двойным щелчком, работает
+  без интернета и без сервера. Никаких внешних запросов — ни шрифтов, ни
+  картинок, ни fetch. Проверка N это контролирует.
+
+  Назначение: показать человеку интерфейс ДО написания кода и на нём
+  доработать функционал. Данные вымышленные, поведение имитируется.
+
+  ГЛАВНОЕ ПРАВИЛО РАЗМЕТКИ
+  Каждый интерактивный элемент, который что-то значит для функционала,
+  получает атрибут data-mock-id="kebab-case-имя". На эти id ссылаются
+  подзадачи в feature-list.json через поле mock_ref — так макет становится
+  проверяемым ТЗ, а не картинкой. Проверка O сверяет ссылки с разметкой.
+
+  Убери из этого шаблона всё, что проекту не нужно: лишний экран, чат или
+  таблица в макете хуже, чем их отсутствие — человек начнёт обсуждать то,
+  чего не будет.
+-->
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{PROJECT_NAME}} — макет</title>
+<style>
+  :root {
+    --bg:#fff; --fg:#1c1c1a; --muted:#6b6b66; --line:#e3e3df; --card:#f7f7f5;
+    --accent:#2e6bd4; --accent-fg:#fff; --warn-bg:#fff4d6; --warn-fg:#6b5310;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg:#272726; --fg:#eceae5; --muted:#a3a099; --line:#3d3d3a; --card:#2f2f2d;
+      --accent:#4b83e0; --accent-fg:#fff; --warn-bg:#3b3529; --warn-fg:#e8d9a8;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg:#272726; --fg:#eceae5; --muted:#a3a099; --line:#3d3d3a; --card:#2f2f2d;
+    --accent:#4b83e0; --accent-fg:#fff; --warn-bg:#3b3529; --warn-fg:#e8d9a8;
+  }
+  * { box-sizing:border-box; }
+  body {
+    margin:0; background:var(--bg); color:var(--fg);
+    font:16px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  }
+  .mock-banner {
+    background:var(--warn-bg); color:var(--warn-fg); text-align:center;
+    padding:.55rem 1rem; font-size:.9rem; font-weight:600;
+  }
+  header {
+    display:flex; align-items:center; gap:1rem; flex-wrap:wrap;
+    padding:1rem 1.25rem; border-bottom:1px solid var(--line);
+  }
+  .brand { font-weight:700; font-size:1.05rem; }
+  nav { display:flex; gap:.25rem; margin-left:auto; flex-wrap:wrap; }
+  nav button {
+    font:inherit; font-size:.92rem; padding:.4rem .8rem; cursor:pointer;
+    background:none; border:1px solid transparent; border-radius:.45rem; color:var(--muted);
+  }
+  nav button[aria-selected="true"] { background:var(--card); border-color:var(--line); color:var(--fg); }
+  main { max-width:60rem; margin:0 auto; padding:1.75rem 1.25rem 4rem; }
+  .screen[hidden] { display:none; }
+  h1 { font-size:1.5rem; margin:0 0 .3rem; }
+  .hint { color:var(--muted); font-size:.95rem; margin:0 0 1.5rem; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:.7rem; padding:1.1rem 1.25rem; margin:1rem 0; }
+  label { display:block; font-size:.9rem; color:var(--muted); margin:.9rem 0 .3rem; }
+  input, select, textarea {
+    font:inherit; width:100%; padding:.55rem .7rem; color:var(--fg);
+    background:var(--bg); border:1px solid var(--line); border-radius:.45rem;
+  }
+  button.action {
+    font:inherit; font-weight:600; cursor:pointer; margin-top:1rem;
+    padding:.6rem 1.1rem; border:none; border-radius:.45rem;
+    background:var(--accent); color:var(--accent-fg);
+  }
+  button.ghost { background:none; border:1px solid var(--line); color:var(--fg); }
+  .wrap { overflow-x:auto; }
+  table { border-collapse:collapse; width:100%; min-width:32rem; }
+  th, td { text-align:left; padding:.55rem .7rem; border-bottom:1px solid var(--line); }
+  th { font-size:.8rem; text-transform:uppercase; letter-spacing:.04em; color:var(--muted); }
+  /* --- чат: убрать, если проект не про диалогового агента --- */
+  .chat { display:flex; flex-direction:column; gap:.7rem; min-height:16rem; }
+  .msg { max-width:80%; padding:.6rem .85rem; border-radius:.8rem; }
+  .msg.user { align-self:flex-end; background:var(--accent); color:var(--accent-fg); }
+  .msg.bot { align-self:flex-start; background:var(--card); border:1px solid var(--line); }
+  .composer { display:flex; gap:.5rem; margin-top:1rem; }
+  .composer input { flex:1; }
+  /* --- панель «что можно потыкать» --- */
+  .try { border-left:3px solid var(--accent); padding:.2rem 0 .2rem 1rem; margin:2rem 0 0; }
+  .try h2 { font-size:1rem; margin:.2rem 0 .5rem; }
+  .try ul { margin:0; padding-left:1.15rem; color:var(--muted); font-size:.93rem; }
+</style>
+</head>
+<body>
+
+<div class="mock-banner">
+  Это макет. Данные вымышленные, кнопки имитируют поведение — ничего не сохраняется.
+</div>
+
+<header>
+  <span class="brand">{{PROJECT_NAME}}</span>
+  <nav role="tablist">
+    {{#SCREENS}}
+    <button role="tab" data-screen="{{SCREEN_ID}}" aria-selected="{{SELECTED}}">{{SCREEN_TITLE}}</button>
+    {{/SCREENS}}
+  </nav>
+</header>
+
+<main>
+
+  <!-- ================= ЭКРАН: пример формы + результата ================= -->
+  <section class="screen" id="screen-main">
+    <h1>{{SCREEN_MAIN_TITLE}}</h1>
+    <p class="hint">{{SCREEN_MAIN_HINT}}</p>
+
+    <div class="card">
+      <label for="f-input">{{FIELD_LABEL}}</label>
+      <input id="f-input" data-mock-id="main-input" placeholder="{{FIELD_PLACEHOLDER}}">
+      <button class="action" data-mock-id="main-submit" onclick="showResult()">{{SUBMIT_LABEL}}</button>
+    </div>
+
+    <div class="card" id="result" hidden data-mock-id="main-result">
+      <strong>Результат</strong>
+      <div class="wrap">
+        <table>
+          <thead><tr>{{#RESULT_COLS}}<th>{{COL}}</th>{{/RESULT_COLS}}</tr></thead>
+          <tbody>{{#RESULT_ROWS}}<tr>{{#CELLS}}<td>{{CELL}}</td>{{/CELLS}}</tr>{{/RESULT_ROWS}}</tbody>
+        </table>
+      </div>
+      <button class="action ghost" data-mock-id="main-export">{{EXPORT_LABEL}}</button>
+    </div>
+  </section>
+
+  <!-- ============ ЭКРАН: диалоговый агент (удалить, если не нужен) ============ -->
+  <section class="screen" id="screen-chat" hidden>
+    <h1>{{SCREEN_CHAT_TITLE}}</h1>
+    <p class="hint">Ответы записаны заранее — так агент будет отвечать примерно.</p>
+    <div class="card chat" id="chat" data-mock-id="chat-thread">
+      {{#CHAT}}<div class="msg {{ROLE}}">{{TEXT}}</div>{{/CHAT}}
+    </div>
+    <div class="composer">
+      <input id="chat-input" data-mock-id="chat-input" placeholder="Напишите сообщение…">
+      <button class="action" data-mock-id="chat-send" onclick="sendChat()">Отправить</button>
+    </div>
+  </section>
+
+  <div class="try">
+    <h2>Что здесь можно потыкать</h2>
+    <ul>
+      {{#TRY}}<li>{{TEXT}}</li>{{/TRY}}
+    </ul>
+  </div>
+
+</main>
+
+<script>
+  // Переключение экранов
+  const tabs = document.querySelectorAll('nav [data-screen]');
+  function openScreen(id) {
+    document.querySelectorAll('.screen').forEach(s => s.hidden = (s.id !== 'screen-' + id));
+    tabs.forEach(t => t.setAttribute('aria-selected', String(t.dataset.screen === id)));
+  }
+  tabs.forEach(t => t.addEventListener('click', () => openScreen(t.dataset.screen)));
+
+  // Имитация результата: никаких запросов наружу, просто показываем заготовку
+  function showResult() {
+    document.getElementById('result').hidden = false;
+  }
+
+  // Имитация диалога: ответы из заранее заданного списка по кругу
+  const SCRIPTED = {{SCRIPTED_REPLIES}};   // например: ["Нашёл 3 договора…", "Готово."]
+  let replyIdx = 0;
+  function sendChat() {
+    const input = document.getElementById('chat-input');
+    if (!input.value.trim()) return;
+    const thread = document.getElementById('chat');
+    const add = (cls, text) => {
+      const d = document.createElement('div');
+      d.className = 'msg ' + cls; d.textContent = text; thread.appendChild(d);
+    };
+    add('user', input.value);
+    input.value = '';
+    setTimeout(() => {
+      add('bot', SCRIPTED.length ? SCRIPTED[replyIdx++ % SCRIPTED.length] : 'Здесь будет ответ агента.');
+      thread.scrollTop = thread.scrollHeight;
+    }, 400);
+  }
+</script>
+
+</body>
+</html>

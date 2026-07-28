@@ -2,8 +2,8 @@
 
 Репозиторий одновременно является **маркетплейсом плагинов Claude Code** и
 самим плагином `nlab`. Все скиллы ставятся одним пакетом и вызываются
-с префиксом: `/nlab:project-start`, `/nlab:code-design`, `/nlab:design-ui`,
-`/nlab:dokploy-prep`, `/nlab:dokploy`. Начало любого нового проекта — `/nlab:project-start`.
+с префиксом: `/nlab:project-start`, `/nlab:prototype`, `/nlab:code-design`,
+`/nlab:design-ui`, `/nlab:dokploy-prep`, `/nlab:dokploy`. Начало любого нового проекта — `/nlab:project-start`.
 
 Репозиторий приватный. Claude Code клонирует его обычным `git` под вашей
 учётной записью — доступ к репо нужен, ничего публиковать не требуется.
@@ -46,6 +46,7 @@ git (`gh auth login` или SSH-ключ).
 | Скилл | Вызов | Этап | Назначение |
 |---|---|---|---|
 | `project-start` | `/nlab:project-start` | discovery | старт проекта: уровень подачи, Discovery → `intent.md` и `spec/SPEC.md`, каркас, стек, доступы, `PLAN.html` для человека |
+| `prototype` | `/nlab:prototype` | discovery | кликабельный HTML-макет интерфейса: снимает требования на нём, на выходе `MOCK.html`, критерии и `feature-list.json` |
 | `code-design` | `/nlab:code-design` | design | спецификация (SDD) в `spec/` и архитектура бэкенда (DDD) в `arch/`: единый язык, слои, ADR |
 | `design-ui` | `/nlab:design-ui` | design (UI) | дизайн-система NeuroLab поверх shadcn/ui (Montserrat + 112.5%, графитовая тёмная тема) |
 | `dokploy-prep` | `/nlab:dokploy-prep` | prep | подготовка репозитория к деплою: `docker-compose.dokploy.yml`, `.env.dokploy.example`, `DEPLOY_DOKPLOY.md` |
