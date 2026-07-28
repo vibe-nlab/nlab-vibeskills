@@ -1,20 +1,20 @@
 ---
-name: design
-title: "Design: спецификация и архитектура проекта (SDD + DDD)"
-description: Второй этап Golden Path NeuroLab. Закрывает спецификацию проекта — схемы входа/выхода на pydantic, контракты инструментов, схему агентов — и проектирует архитектуру бэкенда по DDD - единый язык домена, слои domain/application/infrastructure, границы доменных областей, карта модулей и ADR на каждое значимое решение. Работает в project-docs/spec/ и project-docs/arch/, собирает человекочитаемый план PLAN.html из feature-list.json, создаёт скелет папок бэкенда, привязывает подзадачи feature-list.json к разделам спецификации. Вызывается командой /nlab:design. Использовать после /nlab:start, когда в spec/SPEC.md остались TODO (этап Design), либо когда пользователь просит спроектировать архитектуру, схему агентов, структуру бэкенда или говорит «как это будет устроено».
+name: code-design
+title: "Code Design: спецификация и архитектура проекта (SDD + DDD)"
+description: Второй этап Golden Path NeuroLab. Закрывает спецификацию проекта — схемы входа/выхода на pydantic, контракты инструментов, схему агентов — и проектирует архитектуру бэкенда по DDD - единый язык домена, слои domain/application/infrastructure, границы доменных областей, карта модулей и ADR на каждое значимое решение. Работает в project-docs/spec/ и project-docs/arch/, собирает человекочитаемый план PLAN.html из feature-list.json, создаёт скелет папок бэкенда, привязывает подзадачи feature-list.json к разделам спецификации. Вызывается командой /nlab:code-design. Использовать после /nlab:project-start, когда в spec/SPEC.md остались TODO (этап Design), либо когда пользователь просит спроектировать архитектуру, схему агентов, структуру бэкенда или говорит «как это будет устроено».
 owner: EVR_AG
-version: 1.2.0
+version: 2.0.0
 status: in-use
-scope: проекты NeuroLab, прошедшие /nlab:start — сервисы, агенты, мультиагентные системы; этап между Discovery и Prep
+scope: проекты NeuroLab, прошедшие /nlab:project-start — сервисы, агенты, мультиагентные системы; этап между Discovery и Prep
 stage: design
-depends_on: [start]
+depends_on: [project-start]
 autonomy_level: R3
 last_reviewed: 2026-07-28
 registry_url: https://github.com/sber-nlab/nlab-vibeskills
 update_check: per_session
 ---
 
-# Design: спецификация и архитектура проекта (SDD + DDD)
+# Code Design: спецификация и архитектура проекта (SDD + DDD)
 
 ## 1. Назначение (Purpose)
 
@@ -36,19 +36,19 @@ SDD и DDD не конкурируют: спецификация даёт пон
 спецификации и в именах классов.
 
 Скилл опирается на документы реестра — **читай их с диска, не пересказывай
-по памяти**: `${CLAUDE_PLUGIN_ROOT}/skills/start/assets/AGENTS.md` (§3 SDD,
+по памяти**: `${CLAUDE_PLUGIN_ROOT}/skills/project-start/assets/AGENTS.md` (§3 SDD,
 §5 автономия, §6 обязательные файлы) и
-`${CLAUDE_PLUGIN_ROOT}/skills/start/references/project_setup_best_practices.md`
+`${CLAUDE_PLUGIN_ROOT}/skills/project-start/references/project_setup_best_practices.md`
 (§1 состав спецификации, §3 pydantic-ai, §6 модели).
 
 Служебные артефакты процесса лежат в `project-docs/` (создана на этапе
-`/nlab:start`); в корне из документов остаётся только `AGENTS.md`. Короткие
+`/nlab:project-start`); в корне из документов остаётся только `AGENTS.md`. Короткие
 имена в тексте — файлы оттуда, в командах путь указан полностью.
 
 Все пути ниже — относительно каталога этого скилла:
 
 ```
-SKILL_DIR = ${CLAUDE_PLUGIN_ROOT}/skills/design
+SKILL_DIR = ${CLAUDE_PLUGIN_ROOT}/skills/code-design
 ├── assets/spec/schemas.md          # → project-docs/spec/schemas.md
 ├── assets/spec/tools.md            # → project-docs/spec/tools.md
 ├── assets/spec/agents.md           # → project-docs/spec/agents.md
@@ -60,15 +60,15 @@ SKILL_DIR = ${CLAUDE_PLUGIN_ROOT}/skills/design
 
 ## 2. Входные артефакты (Inputs) — ОБЯЗАТЕЛЬНО
 
-Скилл **не начинает работу** без выхода `/nlab:start`. Нет входа — не
+Скилл **не начинает работу** без выхода `/nlab:project-start`. Нет входа — не
 додумывать, а отправить пользователя на предыдущий этап.
 
 | Артефакт | Обязателен? | Кто предоставляет | Что делать, если отсутствует |
 |---|---|---|---|
-| `project-docs/intent.md` с непустыми критериями приёмки и границами | да | `/nlab:start` | остановиться, запустить `/nlab:start` |
-| `project-docs/spec/SPEC.md` со всеми разделами | да | `/nlab:start` | остановиться, запустить `/nlab:start` |
-| `project-docs/feature-list.json` | да | `/nlab:start` | остановиться, запустить `/nlab:start` |
-| `project-docs/NOTES.md` с зафиксированным стеком | да | `/nlab:start` | стек не выбран — вернуться на Discovery, не выбирать молча за пользователя |
+| `project-docs/intent.md` с непустыми критериями приёмки и границами | да | `/nlab:project-start` | остановиться, запустить `/nlab:project-start` |
+| `project-docs/spec/SPEC.md` со всеми разделами | да | `/nlab:project-start` | остановиться, запустить `/nlab:project-start` |
+| `project-docs/feature-list.json` | да | `/nlab:project-start` | остановиться, запустить `/nlab:project-start` |
+| `project-docs/NOTES.md` с зафиксированным стеком | да | `/nlab:project-start` | стек не выбран — вернуться на Discovery, не выбирать молча за пользователя |
 | Ответы на открытые вопросы из `spec/SPEC.md` §8 | да, если вопрос влияет на контракт | пользователь | спросить прямо; без ответа не проектировать «на всякий случай», а зафиксировать развилку в ADR и взять один вариант с пометкой «решение пересматривается» |
 | Доменные знания: как заказчик называет вещи | да | пользователь | спросить его словами, а не терминами; единый язык нельзя выдумать за заказчика |
 
@@ -169,7 +169,7 @@ Design выполняет часть подзадач сам (специфика
 
 ### Как разговаривать с пользователем
 
-Правила из `/nlab:start` §4 действуют и здесь — они про всю сессию, а не
+Правила из `/nlab:project-start` §4 действуют и здесь — они про всю сессию, а не
 про один скилл. На этом этапе особенно важно: архитектура звучит для
 не-инженера как заклинание. Объясняй решения через последствия для него
 («домен не знает про базу — значит, сможем поменять хранилище, не переписав
@@ -182,7 +182,7 @@ Design выполняет часть подзадач сам (специфика
 
 | Правило | Технический механизм принуждения | Когда |
 |---|---|---|
-| Проектирование не начинается без выхода Discovery | Отсутствует `intent.md`, `spec/SPEC.md` или `feature-list.json` → скилл останавливается и отправляет на `/nlab:start` | на старте |
+| Проектирование не начинается без выхода Discovery | Отсутствует `intent.md`, `spec/SPEC.md` или `feature-list.json` → скилл останавливается и отправляет на `/nlab:project-start` | на старте |
 | Спецификация допроектирована | Проверка **H**: в `spec/` и `arch/` не осталось `TODO`. Есть — статус не переводится в `design`, handoff не отдаётся | перед handoff |
 | Каждый критерий приёмки покрыт | Проверка **I**: у каждого критерия из `intent.md` есть строка в `spec/SPEC.md` §1, и каждый упомянутый `id` существует в `feature-list.json`. Непокрытый критерий → блок | перед handoff |
 | Модели исполняемы | Проверка **J**: python-блоки из `spec/schemas.md` компилируются и, если зависимости установлены, импортируются. Не компилируется → это не спецификация | перед handoff |
@@ -284,7 +284,7 @@ done
 ## 6. Процесс (шаги)
 
 1. **Проверить входы** (п.2). Нет `intent.md` / `spec/SPEC.md` /
-   `feature-list.json` — остановиться и отправить на `/nlab:start`. Один
+   `feature-list.json` — остановиться и отправить на `/nlab:project-start`. Один
    раз за сессию сверить версию скилла с реестром (п.10).
 2. **Прочитать правила и текущее состояние**: `AGENTS.md` и
    `project_setup_best_practices.md` из реестра, затем `intent.md`,
@@ -407,7 +407,7 @@ Prep не стартует, пока проверка **H** не пуста. Dep
 
 ## 11. Примеры
 
-**Вход** — тот же проект, что в примере `/nlab:start`: экстрактор
+**Вход** — тот же проект, что в примере `/nlab:project-start`: экстрактор
 реквизитов договора. В `spec/SPEC.md` разделы §2–§4 помечены
 `TODO (этап Design)`.
 

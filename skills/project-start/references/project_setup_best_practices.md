@@ -40,7 +40,7 @@ zustand (стейт), recharts (графики), headlessui/heroicons, sass, gsa
 Как использовать:
 
 ```bash
-cp -r "${CLAUDE_PLUGIN_ROOT}/skills/start/assets/frontend-next-14-starter" <проект>/frontend
+cp -r "${CLAUDE_PLUGIN_ROOT}/skills/project-start/assets/frontend-next-14-starter" <проект>/frontend
 cd <проект>/frontend
 # заменить name в package.json на имя проекта
 npm install

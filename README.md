@@ -2,8 +2,8 @@
 
 Репозиторий одновременно является **маркетплейсом плагинов Claude Code** и
 самим плагином `nlab`. Все скиллы ставятся одним пакетом и вызываются
-с префиксом: `/nlab:start`, `/nlab:design`, `/nlab:design-ui`,
-`/nlab:dokploy-prep`, `/nlab:dokploy`. Начало любого нового проекта — `/nlab:start`.
+с префиксом: `/nlab:project-start`, `/nlab:code-design`, `/nlab:design-ui`,
+`/nlab:dokploy-prep`, `/nlab:dokploy`. Начало любого нового проекта — `/nlab:project-start`.
 
 Репозиторий приватный. Claude Code клонирует его обычным `git` под вашей
 учётной записью — доступ к репо нужен, ничего публиковать не требуется.
@@ -45,8 +45,8 @@ git (`gh auth login` или SSH-ключ).
 
 | Скилл | Вызов | Этап | Назначение |
 |---|---|---|---|
-| `start` | `/nlab:start` | discovery | старт нового проекта: Discovery → `intent.md` и `SPEC.md`, каркас проекта, дефолтный стек, проверка доступов |
-| `design` | `/nlab:design` | design | спецификация (SDD) в `spec/` и архитектура бэкенда (DDD) в `arch/`: единый язык, слои, ADR |
+| `project-start` | `/nlab:project-start` | discovery | старт нового проекта: Discovery → `intent.md` и `SPEC.md`, каркас проекта, дефолтный стек, проверка доступов |
+| `code-design` | `/nlab:code-design` | design | спецификация (SDD) в `spec/` и архитектура бэкенда (DDD) в `arch/`: единый язык, слои, ADR |
 | `design-ui` | `/nlab:design-ui` | design (UI) | дизайн-система NeuroLab поверх shadcn/ui (Montserrat + 112.5%, графитовая тёмная тема) |
 | `dokploy-prep` | `/nlab:dokploy-prep` | prep | подготовка репозитория к деплою: `docker-compose.dokploy.yml`, `.env.dokploy.example`, `DEPLOY_DOKPLOY.md` |
 | `dokploy` | `/nlab:dokploy` | deploy | деплой и эксплуатация сервисов на Dokploy-серверах через API |
@@ -67,7 +67,7 @@ git (`gh auth login` или SSH-ключ).
 `assets/` (копируется в проект пользователя) и `references/` (только
 чтение). Корень репозитория остаётся чистым. Например, правила процесса
 `AGENTS.md`, конвенции стека `project_setup_best_practices.md` и стартовый
-фронтенд-темплейт живут внутри `skills/start/`.
+фронтенд-темплейт живут внутри `skills/project-start/`.
 
 ## Как добавить скилл в пакет
 

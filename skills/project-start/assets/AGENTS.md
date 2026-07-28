@@ -1,5 +1,5 @@
 <!-- nlab-rules: v0.0.0, скопировано 0000-00-00 -->
-<!-- Штамп заполняет /nlab:start при копировании. Скиллы сверяют его со своей
+<!-- Штамп заполняет /nlab:project-start при копировании. Скиллы сверяют его со своей
      версией и предлагают обновить копию. Руками не редактировать. -->
 
 # AGENTS.md
@@ -37,15 +37,15 @@ Discovery → Design → Prep → Deploy
 
 | Этап | Скилл | Вход | Выход |
 |---|---|---|---|
-| 1 | `/nlab:start` | запрос пользователя | `intent.md` + каркас проекта |
-| 2 | `/nlab:design` | `intent.md` + `spec/SPEC.md` | `project-docs/spec/` и `arch/` без TODO; UI — `/nlab:design-ui` |
+| 1 | `/nlab:project-start` | запрос пользователя | `intent.md` + каркас проекта |
+| 2 | `/nlab:code-design` | `intent.md` + `spec/SPEC.md` | `project-docs/spec/` и `arch/` без TODO; UI — `/nlab:design-ui` |
 | 3 | `/nlab:dokploy-prep` | структура проекта | готовый к сборке репозиторий + `EVIDENCE.md` |
 | 4 | `/nlab:dokploy` | репозиторий + `EVIDENCE.md` | развёрнутый сервис |
 
-Начало любого нового проекта — `/nlab:start`, дальше `/nlab:design`.
-Не путай два разных «design»: `/nlab:design` — этап 2, спецификация и
-архитектура (SDD + DDD); `/nlab:design-ui` — только внешний вид интерфейса
-по дизайн-системе NeuroLab.
+Начало любого нового проекта — `/nlab:project-start`, дальше
+`/nlab:code-design`. Не путай его с `/nlab:design-ui`: `code-design` — этап 2,
+спецификация и архитектура кода (SDD + DDD); `design-ui` — только внешний вид
+интерфейса по дизайн-системе NeuroLab, и он не заменяет этап 2.
 
 **Правило**: не переходи к следующему скиллу, если текущий не оставил
 обязательный выходной артефакт. Если пользователь просит "просто сделай
@@ -192,13 +192,13 @@ Golden Path — создай его, не жди отдельной просьб
 При создании нового проекта действуют правила из
 `project_setup_best_practices.md` — прочитай его на этапах Discovery/Design,
 до выбора стека и кода. Документ живёт в реестре, внутри скилла `start`:
-`${CLAUDE_PLUGIN_ROOT}/skills/start/references/project_setup_best_practices.md`.
+`${CLAUDE_PLUGIN_ROOT}/skills/project-start/references/project_setup_best_practices.md`.
 Кратко:
 
 - проектирование агента — через SDD: спецификация (схемы вход/выход,
   инструменты, схема агентов) раньше кода;
 - фронтенд — только React по темплейту компании
-  `${CLAUDE_PLUGIN_ROOT}/skills/start/assets/frontend-next-14-starter/`;
+  `${CLAUDE_PLUGIN_ROOT}/skills/project-start/assets/frontend-next-14-starter/`;
 - агентов и схему агентов — на pydantic-ai (дока для агента:
   <https://ai.pydantic.dev/llms.txt>);
 - LLM из кода — только через OpenAI-совместимый API, **не** через
