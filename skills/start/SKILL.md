@@ -1,9 +1,9 @@
 ---
 name: start
 title: "Start: старт проекта по Golden Path NeuroLab"
-description: Точка входа в любой новый проект NeuroLab. Проводит Discovery (гипотеза результата, измеримые критерии приёмки, границы задачи), фиксирует его в intent.md, разворачивает обязательный каркас проекта (spec/SPEC.md — спецификация SDD, AGENTS.md, NOTES.md, feature-list.json, EVIDENCE.md, .gitignore), закрепляет дефолтный стек компании (React из темплейта, pydantic-ai, LLM только через OpenAI-совместимый API) и проверяет доступы — выданный git-репозиторий и ключ LLM. Вызывается командой /nlab:start. Использовать, когда пользователь начинает новый проект, говорит «начать проект», «с чего начать», «новый сервис/агент/интерфейс» или просит сразу писать код без Discovery.
+description: Точка входа в любой новый проект NeuroLab. Проводит Discovery (гипотеза результата, измеримые критерии приёмки, границы задачи), фиксирует его в intent.md, разворачивает обязательный каркас: AGENTS.md в корне и папку project-docs/ со спецификацией SDD (spec/SPEC.md), NOTES.md, EVIDENCE.md, feature-list.json, закрепляет дефолтный стек компании (React из темплейта, pydantic-ai, LLM только через OpenAI-совместимый API) и проверяет доступы — выданный git-репозиторий и ключ LLM. Вызывается командой /nlab:start. Использовать, когда пользователь начинает новый проект, говорит «начать проект», «с чего начать», «новый сервис/агент/интерфейс» или просит сразу писать код без Discovery.
 owner: EVR_AG
-version: 1.2.0
+version: 1.3.0
 status: in-use
 scope: любой новый проект NeuroLab (сервис, агент, мультиагентная система, фронтенд) — до выбора стека и первой строки кода
 stage: discovery
@@ -42,6 +42,27 @@ SKILL_DIR = ${CLAUDE_PLUGIN_ROOT}/skills/start
 └── references/project_setup_best_practices.md    # только чтение, в проект не копируется
 ```
 
+Служебные артефакты процесса живут в одной папке — `project-docs/`, чтобы
+корень проекта оставался кодом, а не документами:
+
+```
+проект/
+├── AGENTS.md                 # ЕДИНСТВЕННОЕ исключение — остаётся в корне,
+│                             # иначе агенты не подхватят правила автоматически
+├── project-docs/
+│   ├── intent.md
+│   ├── NOTES.md
+│   ├── EVIDENCE.md
+│   ├── feature-list.json
+│   ├── spec/                 # SPEC.md; этап Design добавит schemas/tools/agents
+│   └── arch/                 # создаёт этап Design
+├── backend/  frontend/
+└── .gitignore  .env.example
+```
+
+Дальше в тексте короткие имена (`intent.md`, `NOTES.md`) означают файлы из
+`project-docs/`. В командах путь всегда указан полностью.
+
 ## 2. Входные артефакты (Inputs) — ОБЯЗАТЕЛЬНО
 
 Скилл — точка входа, поэтому входов от других скиллов у него нет. Но есть
@@ -61,12 +82,12 @@ SKILL_DIR = ${CLAUDE_PLUGIN_ROOT}/skills/start
 
 | Артефакт | Обязателен? | Формат | Кто читает дальше |
 |---|---|---|---|
-| `intent.md` | да | markdown: гипотеза результата, критерии приёмки, границы (что НЕ входит), предположения | Design, Prep, ревьюер-человек |
-| `spec/SPEC.md` | да | markdown по `$SKILL_DIR/assets/SPEC.template.md`: назначение и критерии, схемы вход/выход, инструменты, схема агентов, границы автономии, зависимости, журнал изменений | Design, Prep, все субагенты-исполнители |
+| `project-docs/intent.md` | да | markdown: гипотеза результата, критерии приёмки, границы (что НЕ входит), предположения | Design, Prep, ревьюер-человек |
+| `project-docs/spec/SPEC.md` | да | markdown по `$SKILL_DIR/assets/SPEC.template.md`: назначение и критерии, схемы вход/выход, инструменты, схема агентов, границы автономии, зависимости, журнал изменений | Design, Prep, все субагенты-исполнители |
 | `AGENTS.md` | да | markdown: копия правил реестра + проектная специфика (стек, домен, ограничения) | любой агент/сотрудник, открывший проект |
-| `NOTES.md` | да | append-only журнал: дата, этап, решение, обоснование | все последующие скиллы |
-| `feature-list.json` | да | JSON-массив подзадач: `id`, `title`, `acceptance`, `status`, `depends_on` | Design/Prep, декомпозиция на субагентов |
-| `EVIDENCE.md` | да | append-only: что проверено и как (проверяемые формулировки) | Prep, Deploy (без него Deploy не стартует) |
+| `project-docs/NOTES.md` | да | append-only журнал: дата, этап, решение, обоснование | все последующие скиллы |
+| `project-docs/feature-list.json` | да | JSON-массив подзадач: `id`, `title`, `acceptance`, `status`, `depends_on` | Design/Prep, декомпозиция на субагентов |
+| `project-docs/EVIDENCE.md` | да | append-only: что проверено и как (проверяемые формулировки) | Prep, Deploy (без него Deploy не стартует) |
 | `.gitignore` | да | содержит `.env`, `.env.*` (кроме `*.example`), `servers.md` | git |
 | `.env.example` | да, если проект использует env | ключи с `CHANGE_ME`-значениями, без секретов | Prep, Deploy |
 | `frontend/` из темплейта компании | да, если у проекта есть UI | копия `$SKILL_DIR/assets/frontend-next-14-starter/` | Design (UI), Prep |
@@ -189,27 +210,27 @@ grep -rn 'openrouter.ai\|ai.nlabstudio.ru' \
 
 # D. Append-only аудит. Формат вывода: <добавлено> <удалено> <файл>.
 # Ожидание: вторая колонка = 0 для обоих файлов.
-git diff --cached --numstat -- NOTES.md EVIDENCE.md
+git diff --cached --numstat -- project-docs/NOTES.md project-docs/EVIDENCE.md
 
 # E. Обязательные разделы spec/SPEC.md на месте. Ожидание: пусто.
 for h in "1. Назначение" "2. Схемы" "3. Инструменты" "4. Схема агентов" \
          "5. Границы автономии" "6. Данные" "7. Что явно НЕ входит" \
          "8. Открытые вопросы"; do
-  grep -q "^## $h" spec/SPEC.md || echo "нет раздела: $h"
+  grep -q "^## $h" project-docs/spec/SPEC.md || echo "нет раздела: $h"
 done
 
 # F. Публичный контракт изменён без правки spec/SPEC.md. Ожидание: пусто.
 if git diff --cached -U0 -- '*.py' '*.ts' '*.js' '*.tsx' | grep '^+' \
      | grep -qE '(class .*\(BaseModel\)|@(app|router)\.(get|post|put|delete|patch)|@agent\.tool|def .*-> *[A-Z])'
 then
-  git diff --cached --name-only | grep -qx 'spec/SPEC.md' \
+  git diff --cached --name-only | grep -qx 'project-docs/spec/SPEC.md' \
     || echo "контракт изменён, а spec/SPEC.md не в коммите"
 fi
 
 # G. Спецификация допроектирована. Ожидание: пусто.
 # Для /nlab:start остаток TODO (этап Design) — норма, проверка нужна перед Prep.
 # Строки-цитаты (`>`) исключены: пояснение в шапке шаблона само упоминает TODO.
-grep -rn 'TODO' spec/ --include='*.md' | grep -vE '^[^:]+:[0-9]+:[[:space:]]*>'
+grep -rn 'TODO' project-docs/spec/ --include='*.md' | grep -vE '^[^:]+:[0-9]+:[[:space:]]*>'
 ```
 
 `grep` возвращает код 1, когда совпадений нет — для проверок A–C это и есть
@@ -242,7 +263,7 @@ grep -rn 'TODO' spec/ --include='*.md' | grep -vE '^[^:]+:[0-9]+:[[:space:]]*>'
    `EVIDENCE.md` (первая запись — что проверено на этом шаге), `.gitignore`,
    `.env.example` при необходимости.
 7. **Создать `spec/SPEC.md`**: скопировать `$SKILL_DIR/assets/SPEC.template.md`
-   в проект как `spec/SPEC.md` (папка `spec/` — этап Design добавит в неё
+   в проект как `project-docs/spec/SPEC.md` (папка `spec/` — этап Design добавит в неё
    `schemas.md`, `tools.md`, `agents.md`) и заполнить из Discovery — назначение,
    критерии приёмки (перенести из `intent.md` без переформулирования, с
    привязкой к `id` подзадач `feature-list.json`), границы автономии,
@@ -303,7 +324,7 @@ grep -rn 'TODO' spec/ --include='*.md' | grep -vE '^[^:]+:[0-9]+:[[:space:]]*>'
 - каркас: какие файлы созданы (список путей), какие уже существовали и не тронуты;
 - секрет-скан индекса выполнен, команда и результат («0 совпадений» или что найдено и куда вынесено);
 - скан CLI-вызовов LLM выполнен, команда и результат;
-- проверка append-only (`git diff --cached --numstat -- NOTES.md EVIDENCE.md`) — удалённых строк 0;
+- проверка append-only (`git diff --cached --numstat -- project-docs/NOTES.md project-docs/EVIDENCE.md`) — удалённых строк 0;
 - фронт (если разворачивался): `npm install` — код возврата, `npm run dev` — поднялся на порту N;
 - доступы: репозиторий выдан (URL) / не выдан — блокер; ключ LLM есть / запрошен у ответственных;
 - проверка версии скилла в реестре: выполнена (совпадает / расхождение) или не выполнена и почему.

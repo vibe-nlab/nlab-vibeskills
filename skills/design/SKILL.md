@@ -1,9 +1,9 @@
 ---
 name: design
 title: "Design: спецификация и архитектура проекта (SDD + DDD)"
-description: Второй этап Golden Path NeuroLab. Закрывает спецификацию проекта — схемы входа/выхода на pydantic, контракты инструментов, схему агентов — и проектирует архитектуру бэкенда по DDD - единый язык домена, слои domain/application/infrastructure, границы доменных областей, карта модулей и ADR на каждое значимое решение. Работает в spec/ и arch/, создаёт скелет папок бэкенда, привязывает подзадачи feature-list.json к разделам спецификации. Вызывается командой /nlab:design. Использовать после /nlab:start, когда в spec/SPEC.md остались TODO (этап Design), либо когда пользователь просит спроектировать архитектуру, схему агентов, структуру бэкенда или говорит «как это будет устроено».
+description: Второй этап Golden Path NeuroLab. Закрывает спецификацию проекта — схемы входа/выхода на pydantic, контракты инструментов, схему агентов — и проектирует архитектуру бэкенда по DDD - единый язык домена, слои domain/application/infrastructure, границы доменных областей, карта модулей и ADR на каждое значимое решение. Работает в project-docs/spec/ и project-docs/arch/, создаёт скелет папок бэкенда, привязывает подзадачи feature-list.json к разделам спецификации. Вызывается командой /nlab:design. Использовать после /nlab:start, когда в spec/SPEC.md остались TODO (этап Design), либо когда пользователь просит спроектировать архитектуру, схему агентов, структуру бэкенда или говорит «как это будет устроено».
 owner: EVR_AG
-version: 1.0.0
+version: 1.1.0
 status: in-use
 scope: проекты NeuroLab, прошедшие /nlab:start — сервисы, агенты, мультиагентные системы; этап между Discovery и Prep
 stage: design
@@ -41,16 +41,20 @@ SDD и DDD не конкурируют: спецификация даёт пон
 `${CLAUDE_PLUGIN_ROOT}/skills/start/references/project_setup_best_practices.md`
 (§1 состав спецификации, §3 pydantic-ai, §6 модели).
 
+Служебные артефакты процесса лежат в `project-docs/` (создана на этапе
+`/nlab:start`); в корне из документов остаётся только `AGENTS.md`. Короткие
+имена в тексте — файлы оттуда, в командах путь указан полностью.
+
 Все пути ниже — относительно каталога этого скилла:
 
 ```
 SKILL_DIR = ${CLAUDE_PLUGIN_ROOT}/skills/design
-├── assets/spec/schemas.md          # копируется в проект как spec/schemas.md
-├── assets/spec/tools.md            # → spec/tools.md
-├── assets/spec/agents.md           # → spec/agents.md
-├── assets/arch/ARCH.md             # → arch/ARCH.md
-├── assets/arch/language.md         # → arch/language.md
-└── assets/arch/adr/0000-template.md  # → arch/adr/, шаблон для новых ADR
+├── assets/spec/schemas.md          # → project-docs/spec/schemas.md
+├── assets/spec/tools.md            # → project-docs/spec/tools.md
+├── assets/spec/agents.md           # → project-docs/spec/agents.md
+├── assets/arch/ARCH.md             # → project-docs/arch/ARCH.md
+├── assets/arch/language.md         # → project-docs/arch/language.md
+└── assets/arch/adr/0000-template.md  # → project-docs/arch/adr/, шаблон
 ```
 
 ## 2. Входные артефакты (Inputs) — ОБЯЗАТЕЛЬНО
@@ -60,10 +64,10 @@ SKILL_DIR = ${CLAUDE_PLUGIN_ROOT}/skills/design
 
 | Артефакт | Обязателен? | Кто предоставляет | Что делать, если отсутствует |
 |---|---|---|---|
-| `intent.md` с непустыми критериями приёмки и границами | да | `/nlab:start` | остановиться, запустить `/nlab:start` |
-| `spec/SPEC.md` со всеми разделами | да | `/nlab:start` | остановиться, запустить `/nlab:start` |
-| `feature-list.json` | да | `/nlab:start` | остановиться, запустить `/nlab:start` |
-| `NOTES.md` с зафиксированным стеком | да | `/nlab:start` | стек не выбран — вернуться на Discovery, не выбирать молча за пользователя |
+| `project-docs/intent.md` с непустыми критериями приёмки и границами | да | `/nlab:start` | остановиться, запустить `/nlab:start` |
+| `project-docs/spec/SPEC.md` со всеми разделами | да | `/nlab:start` | остановиться, запустить `/nlab:start` |
+| `project-docs/feature-list.json` | да | `/nlab:start` | остановиться, запустить `/nlab:start` |
+| `project-docs/NOTES.md` с зафиксированным стеком | да | `/nlab:start` | стек не выбран — вернуться на Discovery, не выбирать молча за пользователя |
 | Ответы на открытые вопросы из `spec/SPEC.md` §8 | да, если вопрос влияет на контракт | пользователь | спросить прямо; без ответа не проектировать «на всякий случай», а зафиксировать развилку в ADR и взять один вариант с пометкой «решение пересматривается» |
 | Доменные знания: как заказчик называет вещи | да | пользователь | спросить его словами, а не терминами; единый язык нельзя выдумать за заказчика |
 
@@ -71,16 +75,16 @@ SKILL_DIR = ${CLAUDE_PLUGIN_ROOT}/skills/design
 
 | Артефакт | Обязателен? | Формат | Кто читает дальше |
 |---|---|---|---|
-| `spec/SPEC.md` без `TODO`, статус `design` | да | markdown: разделы §2–§4 — сводка и ссылка на детальные файлы | Prep, субагенты-исполнители |
-| `spec/schemas.md` | да | pydantic-модели, **исполняемые**; таблица точек входа; правила валидации | Prep, реализация |
-| `spec/tools.md` | да, если проект содержит агента | контракт каждого инструмента, внешние системы, обратимость, автономия | Prep, реализация |
-| `spec/agents.md` | да | mermaid-схема + таблицы; для одиночного агента — «не применимо» | Prep, реализация |
-| `arch/ARCH.md` | да | масштаб DDD, слои, порты, карта модулей, границы, данные, сквозные решения | Prep, любой новый участник |
-| `arch/language.md` | да | словарь понятий, запрещённые синонимы, слова-омонимы | все — это основа именования |
-| `arch/adr/NNNN-*.md` | да, на каждое значимое решение | ADR по шаблону: контекст, решение, альтернативы, последствия | ревью, будущие участники |
+| `project-docs/spec/SPEC.md` без `TODO`, статус `design` | да | markdown: разделы §2–§4 — сводка и ссылка на детальные файлы | Prep, субагенты-исполнители |
+| `project-docs/spec/schemas.md` | да | pydantic-модели, **исполняемые**; таблица точек входа; правила валидации | Prep, реализация |
+| `project-docs/spec/tools.md` | да, если проект содержит агента | контракт каждого инструмента, внешние системы, обратимость, автономия | Prep, реализация |
+| `project-docs/spec/agents.md` | да | mermaid-схема + таблицы; для одиночного агента — «не применимо» | Prep, реализация |
+| `project-docs/arch/ARCH.md` | да | масштаб DDD, слои, порты, карта модулей, границы, данные, сквозные решения | Prep, любой новый участник |
+| `project-docs/arch/language.md` | да | словарь понятий, запрещённые синонимы, слова-омонимы | все — это основа именования |
+| `project-docs/arch/adr/NNNN-*.md` | да, на каждое значимое решение | ADR по шаблону: контекст, решение, альтернативы, последствия | ревью, будущие участники |
 | Скелет папок бэкенда | да | `domain/`, `application/`, `infrastructure/`, `interfaces/` с `.gitkeep` | Prep |
-| `feature-list.json`, дополненный | да | у каждой подзадачи — `spec_ref` на раздел спецификации | Prep, декомпозиция на субагентов |
-| Записи в `NOTES.md` и `EVIDENCE.md` | да | append-only | аудит, Deploy |
+| `project-docs/feature-list.json`, дополненный | да | у каждой подзадачи — `spec_ref` на раздел спецификации | Prep, декомпозиция на субагентов |
+| Записи в `project-docs/NOTES.md` и `EVIDENCE.md` | да | append-only | аудит, Deploy |
 
 Всё коммитится по завершении. Коммит-мессадж указывает, на основании
 какого входа сделано проектирование (`intent.md` → `spec/` + `arch/`).
@@ -171,17 +175,17 @@ Sonnet-5 уходит реализация: одна подзадача `feature
 # H. Спецификация и архитектура допроектированы. Ожидание: пусто.
 # Строки-цитаты (`>`) исключены: пояснения в шапках шаблонов сами упоминают
 # слово TODO, без фильтра проверка не обнулилась бы никогда.
-grep -rn 'TODO' spec/ arch/ --include='*.md' | grep -vE '^[^:]+:[0-9]+:[[:space:]]*>'
+grep -rn 'TODO' project-docs/spec/ project-docs/arch/ --include='*.md' | grep -vE '^[^:]+:[0-9]+:[[:space:]]*>'
 
 # I. Покрытие критериев приёмки.
 python3 - <<'PY'
 import json, re, pathlib
-intent = pathlib.Path("intent.md").read_text()
+intent = pathlib.Path("project-docs/intent.md").read_text()
 block = re.search(r"##\s*Критерии приёмки\s*\n(.*?)(?=\n##\s|\Z)", intent, re.S)
 crit = re.findall(r"^\s*(\d+)\.", block.group(1), re.M) if block else []
-spec = pathlib.Path("spec/SPEC.md").read_text()
+spec = pathlib.Path("project-docs/spec/SPEC.md").read_text()
 rows = dict(re.findall(r"^\|\s*(\d+)\s*\|.*?\|([^|]*)\|\s*$", spec, re.M))
-ids = {f["id"] for f in json.loads(pathlib.Path("feature-list.json").read_text())}
+ids = {f["id"] for f in json.loads(pathlib.Path("project-docs/feature-list.json").read_text())}
 missing = [c for c in crit if c not in rows]
 refs = {r.strip(" `") for v in rows.values() for r in v.split(",") if r.strip(" `")}
 unknown = sorted(refs - ids)
@@ -194,10 +198,10 @@ PY
 # J. Модели из spec/schemas.md исполняемы.
 python3 - <<'PY'
 import re, pathlib, sys
-code = "\n".join(re.findall(r"```python\n(.*?)```", pathlib.Path("spec/schemas.md").read_text(), re.S))
+code = "\n".join(re.findall(r"```python\n(.*?)```", pathlib.Path("project-docs/spec/schemas.md").read_text(), re.S))
 if not code.strip():
     print("нет ни одного блока моделей"); sys.exit(1)
-obj = compile(code, "spec/schemas.md", "exec")   # синтаксис — жёстко
+obj = compile(code, "project-docs/spec/schemas.md", "exec")   # синтаксис — жёстко
 try:
     exec(obj, {})
     print("OK: модели исполняются")
@@ -212,7 +216,7 @@ grep -rnE '^\s*(import|from)\s+(fastapi|starlette|flask|django|sqlalchemy|psycop
 # L. Схема агентов связна.
 python3 - <<'PY'
 import re, pathlib, sys
-t = pathlib.Path("spec/agents.md").read_text()
+t = pathlib.Path("project-docs/spec/agents.md").read_text()
 m = re.search(r"```mermaid\n(.*?)```", t, re.S)
 if not m:
     print("OK: схема не применима" if "не применимо" in t.lower() else "нет mermaid-блока"); sys.exit()
@@ -225,9 +229,9 @@ print("узлы без объявления:", ", ".join(undeclared)) if undecla
 PY
 
 # M. Каждый ADR упомянут в ARCH.md. Ожидание: пусто.
-for f in arch/adr/[0-9]*.md; do
+for f in project-docs/arch/adr/[0-9]*.md; do
   case "$f" in *0000-template.md) continue;; esac
-  grep -q "$(basename "$f" .md)" arch/ARCH.md || echo "ADR не упомянут в ARCH.md: $f"
+  grep -q "$(basename "$f" .md)" project-docs/arch/ARCH.md || echo "ADR не упомянут в ARCH.md: $f"
 done
 ```
 
