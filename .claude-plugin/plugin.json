@@ -1,7 +1,7 @@
 {
   "name": "nlab",
   "description": "Скиллы NeuroLab на весь цикл проекта: /nlab:start — Discovery и каркас, /nlab:design — спецификация (SDD) и архитектура (DDD), /nlab:design-ui — дизайн-система поверх shadcn, /nlab:dokploy-prep и /nlab:dokploy — подготовка и деплой.",
-  "version": "1.3.0",
+  "version": "1.4.0",
   "author": {
     "name": "NeuroLab (sber-nlab)",
     "url": "https://github.com/sber-nlab"

@@ -1,0 +1,107 @@
+<!doctype html>
+<!--
+  ВНИМАНИЕ: этот файл ГЕНЕРИРУЕТСЯ из project-docs/feature-list.json.
+  Руками не править — правки затрутся при следующей пересборке.
+  Меняются задачи → меняется feature-list.json → план пересобирается целиком.
+  Плейсхолдеры {{...}} заполняет скилл /nlab:design.
+-->
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>План: {{PROJECT_NAME}}</title>
+<style>
+  :root {
+    --bg: #ffffff; --fg: #1c1c1a; --muted: #6b6b66;
+    --line: #e3e3df; --card: #f7f7f5;
+    --done: #2e7d5b; --wip: #b8860b; --todo: #8a8a84;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #272726; --fg: #eceae5; --muted: #a3a099;
+      --line: #3d3d3a; --card: #2f2f2d;
+      --done: #6ec49a; --wip: #e0b64a; --todo: #8a8a84;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 2rem 1.25rem 4rem;
+    background: var(--bg); color: var(--fg);
+    font: 17px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  }
+  main { max-width: 54rem; margin: 0 auto; }
+  h1 { font-size: 1.9rem; line-height: 1.25; margin: 0 0 .25rem; }
+  .sub { color: var(--muted); margin: 0 0 2rem; }
+  h2 { font-size: 1.15rem; margin: 2.5rem 0 .75rem; }
+  .goal {
+    background: var(--card); border: 1px solid var(--line);
+    border-radius: .6rem; padding: 1rem 1.25rem; margin-bottom: 1rem;
+  }
+  ol.criteria { margin: 0; padding-left: 1.25rem; }
+  ol.criteria li { margin: .4rem 0; }
+  .wrap { overflow-x: auto; }
+  table { border-collapse: collapse; width: 100%; min-width: 40rem; }
+  th, td { text-align: left; padding: .6rem .7rem; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { font-size: .85rem; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); font-weight: 600; }
+  .status { white-space: nowrap; font-weight: 600; font-size: .9rem; }
+  .status.done { color: var(--done); }
+  .status.wip  { color: var(--wip); }
+  .status.todo { color: var(--todo); }
+  footer {
+    margin-top: 3rem; padding-top: 1rem; border-top: 1px solid var(--line);
+    color: var(--muted); font-size: .85rem;
+  }
+  code { background: var(--card); padding: .1rem .35rem; border-radius: .25rem; font-size: .9em; }
+</style>
+</head>
+<body>
+<main>
+
+  <h1>{{PROJECT_NAME}}</h1>
+  <p class="sub">План работ. Собран автоматически — правки вносятся в задачи, не сюда.</p>
+
+  <div class="goal">
+    <strong>Что делаем:</strong> {{GOAL}}
+  </div>
+
+  <h2>Как поймём, что готово</h2>
+  <ol class="criteria">
+    {{#CRITERIA}}<li>{{TEXT}}</li>{{/CRITERIA}}
+  </ol>
+
+  <h2>Задачи</h2>
+  <div class="wrap">
+    <table>
+      <thead>
+        <tr><th>Что</th><th>Готово, когда</th><th>Зависит от</th><th>Статус</th></tr>
+      </thead>
+      <tbody>
+        {{#TASKS}}
+        <tr>
+          <td>{{TITLE}}</td>
+          <td>{{ACCEPTANCE}}</td>
+          <td>{{DEPENDS_ON}}</td>
+          <td class="status {{STATUS_CLASS}}">{{STATUS_LABEL}}</td>
+        </tr>
+        {{/TASKS}}
+      </tbody>
+    </table>
+  </div>
+
+  <h2>Что в работу не входит</h2>
+  <p>{{OUT_OF_SCOPE}}</p>
+
+  {{#BLOCKERS}}
+  <h2>Нужно от вас</h2>
+  <p>{{BLOCKERS_TEXT}}</p>
+  {{/BLOCKERS}}
+
+  <footer>
+    Собрано из <code>project-docs/feature-list.json</code>, коммит {{SOURCE_COMMIT}},
+    {{GENERATED_AT}}. Статусы: <span class="status done">готово</span> ·
+    <span class="status wip">в работе</span> · <span class="status todo">не начато</span>.
+  </footer>
+
+</main>
+</body>
+</html>

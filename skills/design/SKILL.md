@@ -1,9 +1,9 @@
 ---
 name: design
 title: "Design: спецификация и архитектура проекта (SDD + DDD)"
-description: Второй этап Golden Path NeuroLab. Закрывает спецификацию проекта — схемы входа/выхода на pydantic, контракты инструментов, схему агентов — и проектирует архитектуру бэкенда по DDD - единый язык домена, слои domain/application/infrastructure, границы доменных областей, карта модулей и ADR на каждое значимое решение. Работает в project-docs/spec/ и project-docs/arch/, создаёт скелет папок бэкенда, привязывает подзадачи feature-list.json к разделам спецификации. Вызывается командой /nlab:design. Использовать после /nlab:start, когда в spec/SPEC.md остались TODO (этап Design), либо когда пользователь просит спроектировать архитектуру, схему агентов, структуру бэкенда или говорит «как это будет устроено».
+description: Второй этап Golden Path NeuroLab. Закрывает спецификацию проекта — схемы входа/выхода на pydantic, контракты инструментов, схему агентов — и проектирует архитектуру бэкенда по DDD - единый язык домена, слои domain/application/infrastructure, границы доменных областей, карта модулей и ADR на каждое значимое решение. Работает в project-docs/spec/ и project-docs/arch/, собирает человекочитаемый план PLAN.html из feature-list.json, создаёт скелет папок бэкенда, привязывает подзадачи feature-list.json к разделам спецификации. Вызывается командой /nlab:design. Использовать после /nlab:start, когда в spec/SPEC.md остались TODO (этап Design), либо когда пользователь просит спроектировать архитектуру, схему агентов, структуру бэкенда или говорит «как это будет устроено».
 owner: EVR_AG
-version: 1.1.0
+version: 1.2.0
 status: in-use
 scope: проекты NeuroLab, прошедшие /nlab:start — сервисы, агенты, мультиагентные системы; этап между Discovery и Prep
 stage: design
@@ -54,7 +54,8 @@ SKILL_DIR = ${CLAUDE_PLUGIN_ROOT}/skills/design
 ├── assets/spec/agents.md           # → project-docs/spec/agents.md
 ├── assets/arch/ARCH.md             # → project-docs/arch/ARCH.md
 ├── assets/arch/language.md         # → project-docs/arch/language.md
-└── assets/arch/adr/0000-template.md  # → project-docs/arch/adr/, шаблон
+├── assets/arch/adr/0000-template.md  # → project-docs/arch/adr/, шаблон
+└── assets/plan.template.html         # → project-docs/PLAN.html, генерируется
 ```
 
 ## 2. Входные артефакты (Inputs) — ОБЯЗАТЕЛЬНО
@@ -84,6 +85,8 @@ SKILL_DIR = ${CLAUDE_PLUGIN_ROOT}/skills/design
 | `project-docs/arch/adr/NNNN-*.md` | да, на каждое значимое решение | ADR по шаблону: контекст, решение, альтернативы, последствия | ревью, будущие участники |
 | Скелет папок бэкенда | да | `domain/`, `application/`, `infrastructure/`, `interfaces/` с `.gitkeep` | Prep |
 | `project-docs/feature-list.json`, дополненный | да | у каждой подзадачи — `spec_ref` на раздел спецификации | Prep, декомпозиция на субагентов |
+| `project-docs/PLAN.html` | да | человекочитаемый план: этапы, подзадачи, критерии, статусы. **Генерируется из `feature-list.json`**, руками не правится | пользователь-не-инженер, приёмка |
+| `.env.example`, пересобранный | да, если решения Design поменяли зависимости | ключи под фактически выбранные хранилище/сервисы, значения `CHANGE_ME_*` | Prep, Deploy |
 | Записи в `project-docs/NOTES.md` и `EVIDENCE.md` | да | append-only | аудит, Deploy |
 
 Всё коммитится по завершении. Коммит-мессадж указывает, на основании
@@ -144,6 +147,26 @@ Sonnet-5 уходит реализация: одна подзадача `feature
 субагент, и в задаче даётся **ссылка на раздел спецификации**, а не
 пересказ. Поэтому у каждой подзадачи должен появиться `spec_ref`.
 
+### План — представление, а не третий источник правды
+
+Если работу принимает не инженер, `feature-list.json` ему бесполезен.
+Поэтому Design собирает `project-docs/PLAN.html` — один самодостаточный
+файл, который открывается двойным щелчком: что делаем, в каком порядке,
+как поймём, что готово.
+
+Жёсткое правило: **план генерируется из `feature-list.json` и никогда не
+правится руками.** Меняются задачи — план пересобирается целиком. Иначе
+через месяц план и реальные задачи разойдутся, и никто не поймёт, какой из
+них настоящий. Шаблон — `$SKILL_DIR/assets/plan.template.html`; в подвале
+проставляется, из какого коммита `feature-list.json` собран.
+
+### Этап закрывает свои же подзадачи
+
+Design выполняет часть подзадач сам (спецификация, схема агентов, карта
+модулей). Отметить их `status: done` в `feature-list.json` — часть работы
+этапа, а не чужая забота. Иначе на приёмке видно «сделано 0 из N», хотя
+половина закрыта.
+
 ### Как разговаривать с пользователем
 
 Правила из `/nlab:start` §4 действуют и здесь — они про всю сессию, а не
@@ -172,10 +195,23 @@ Sonnet-5 уходит реализация: одна подзадача `feature
 `EVIDENCE.md` (п.8). Все запускаются из корня проекта.
 
 ```bash
-# H. Спецификация и архитектура допроектированы. Ожидание: пусто.
-# Строки-цитаты (`>`) исключены: пояснения в шапках шаблонов сами упоминают
-# слово TODO, без фильтра проверка не обнулилась бы никогда.
-grep -rn 'TODO' project-docs/spec/ project-docs/arch/ --include='*.md' | grep -vE '^[^:]+:[0-9]+:[[:space:]]*>'
+# H. Спецификация и архитектура допроектированы. Ожидание: OK.
+# Ищется ТОЧНЫЙ маркер, а не любое слово TODO. Исключены: строки-цитаты
+# (пояснения в шапках шаблонов сами упоминают маркер) и раздел «Журнал
+# изменений» — он append-only, и запись «сняты TODO (этап Design)» иначе
+# блокировала бы Prep навсегда.
+python3 - <<'PY'
+import pathlib, re
+MARK = "TODO (этап Design)"
+hits = []
+for base in ("project-docs/spec", "project-docs/arch"):
+    for f in sorted(pathlib.Path(base).rglob("*.md")):
+        body = re.split(r"^##\s*Журнал изменений", f.read_text(), maxsplit=1, flags=re.M)[0]
+        for i, line in enumerate(body.splitlines(), 1):
+            if MARK in line and not line.lstrip().startswith(">"):
+                hits.append(f"{f}:{i}: {line.strip()}")
+print("\n".join(hits) if hits else "OK: незакрытых разделов нет")
+PY
 
 # I. Покрытие критериев приёмки.
 python3 - <<'PY'
@@ -185,11 +221,14 @@ block = re.search(r"##\s*Критерии приёмки\s*\n(.*?)(?=\n##\s|\Z)"
 crit = re.findall(r"^\s*(\d+)\.", block.group(1), re.M) if block else []
 spec = pathlib.Path("project-docs/spec/SPEC.md").read_text()
 rows = dict(re.findall(r"^\|\s*(\d+)\s*\|.*?\|([^|]*)\|\s*$", spec, re.M))
-ids = {f["id"] for f in json.loads(pathlib.Path("project-docs/feature-list.json").read_text())}
+data = json.loads(pathlib.Path("project-docs/feature-list.json").read_text())
+if not isinstance(data, list):
+    print(f"feature-list.json должен быть массивом верхнего уровня, а не {type(data).__name__}"); raise SystemExit(1)
+ids = {f["id"] for f in data}
 missing = [c for c in crit if c not in rows]
 refs = {r.strip(" `") for v in rows.values() for r in v.split(",") if r.strip(" `")}
 unknown = sorted(refs - ids)
-if not crit: print("в intent.md не найдено ни одного критерия")
+if not crit: print("в intent.md нет критериев в ожидаемом формате: нумерованный список (1., 2., ...) в разделе «Критерии приёмки»")
 if missing: print("критерии без строки в spec/SPEC.md:", ", ".join(missing))
 if unknown: print("ссылки на несуществующие подзадачи:", ", ".join(unknown))
 if crit and not missing and not unknown: print(f"OK: покрыто критериев {len(crit)}")
@@ -202,8 +241,13 @@ code = "\n".join(re.findall(r"```python\n(.*?)```", pathlib.Path("project-docs/s
 if not code.strip():
     print("нет ни одного блока моделей"); sys.exit(1)
 obj = compile(code, "project-docs/spec/schemas.md", "exec")   # синтаксис — жёстко
+# Настоящее пространство имён модуля, а не голый dict: иначе класс получает
+# __module__ = builtins, и при `from __future__ import annotations` разбор
+# типов падает с NameError, хотя документ выглядит правильным.
+import types
+mod = types.ModuleType("spec_schemas"); sys.modules["spec_schemas"] = mod
 try:
-    exec(obj, {})
+    exec(obj, mod.__dict__)
     print("OK: модели исполняются")
 except ImportError as e:                         # зависимостей ещё нет — не блокер
     print(f"OK синтаксис; импорт отложен до Prep ({e})")
@@ -271,9 +315,17 @@ done
 8. **Оформить ADR** на каждое значимое решение и на каждое отклонение от
    дефолта компании (шаблон — `$SKILL_DIR/assets/arch/adr/0000-template.md`).
    Нумерация сквозная, каждый ADR упоминается в журнале `arch/ARCH.md`.
-9. **Привязать подзадачи**: у каждой записи `feature-list.json` проставить
-   `spec_ref` — на какой раздел спецификации она опирается. Критерий без
-   подзадачи или подзадача без `spec_ref` — дыра в декомпозиции.
+9. **Привязать подзадачи и закрыть свои**: у каждой записи
+   `feature-list.json` проставить `spec_ref` — на какой раздел спецификации
+   она опирается; подзадачам, выполненным самим этапом Design, проставить
+   `status: done`. Критерий без подзадачи или подзадача без `spec_ref` —
+   дыра в декомпозиции.
+9a. **Пересобрать `.env.example`** под фактические решения: если Design
+   поменял хранилище или внешние сервисы, ключи из Discovery устарели.
+   Значения — только `CHANGE_ME_*`.
+9b. **Собрать `project-docs/PLAN.html`** из `feature-list.json` по шаблону
+   `$SKILL_DIR/assets/plan.template.html`. Не писать план руками и не
+   править сгенерированный — только пересобирать.
 10. **Прогнать проверки H–M** (п.5) и записать результат каждой в
     `EVIDENCE.md` проверяемой формулировкой.
 11. **Закоммитить** `spec/`, `arch/`, скелет папок и `feature-list.json`
@@ -312,7 +364,9 @@ done
 - проверка **K** — запрещённых импортов в `domain/` — 0;
 - проверка **L** — схема связна либо «не применимо» с обоснованием;
 - проверка **M** — ADR без упоминания в `ARCH.md` — 0; всего ADR — N;
-- подзадач с `spec_ref` — N из N.
+- подзадач с `spec_ref` — N из N; закрыто самим этапом Design — N;
+- `PLAN.html` пересобран из `feature-list.json` (коммит указан в подвале);
+- `.env.example` пересобран / не потребовал изменений (указать почему).
 
 В `NOTES.md` — решения и обоснования: масштаб DDD, границы областей,
 хранилище, где человек в контуре, каждое отклонение от дефолта компании с
