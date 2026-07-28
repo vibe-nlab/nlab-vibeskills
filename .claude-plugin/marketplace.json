@@ -6,14 +6,14 @@
   },
   "metadata": {
     "description": "Приватный реестр скиллов NeuroLab",
-    "version": "1.1.0"
+    "version": "1.2.0"
   },
   "plugins": [
     {
       "name": "nlab",
       "source": "./",
-      "description": "Скиллы NeuroLab: старт проекта по Golden Path (Discovery + каркас + стек), дизайн-система UI поверх shadcn, подготовка репозитория к деплою и деплой на Dokploy. Ставятся одним пакетом, вызываются как /nlab:<скилл>.",
-      "version": "1.1.0",
+      "description": "Скиллы NeuroLab на весь цикл проекта: /nlab:start — Discovery и каркас, /nlab:design — спецификация (SDD) и архитектура (DDD), /nlab:design-ui — дизайн-система поверх shadcn, /nlab:dokploy-prep и /nlab:dokploy — подготовка и деплой.",
+      "version": "1.2.0",
       "category": "workflow",
       "keywords": [
         "nlab",
