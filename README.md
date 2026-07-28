@@ -45,9 +45,9 @@ git (`gh auth login` или SSH-ключ).
 
 | Скилл | Вызов | Этап | Назначение |
 |---|---|---|---|
-| `project-start` | `/nlab:project-start` | discovery | старт проекта: уровень подачи, Discovery → `intent.md` и `spec/SPEC.md`, каркас, стек, доступы, `PLAN.html` для человека |
+| `project-start` | `/nlab:project-start` | discovery | старт проекта: уровень подачи, короткое Discovery → `intent.md`, каркас, стек, доступы, `PLAN.html` для человека |
 | `prototype` | `/nlab:prototype` | discovery | кликабельный HTML-макет интерфейса: снимает требования на нём, на выходе `MOCK.html`, критерии и `feature-list.json` |
-| `code-design` | `/nlab:code-design` | design | спецификация (SDD) в `spec/` и архитектура бэкенда (DDD) в `arch/`: единый язык, слои, ADR |
+| `code-design` | `/nlab:code-design` | design | архитектура бэкенда по DDD в `arch/`: единый язык, слои, точки входа из макета, ADR; модели данных — сразу кодом |
 | `design-ui` | `/nlab:design-ui` | design (UI) | дизайн-система NeuroLab поверх shadcn/ui (Montserrat + 112.5%, графитовая тёмная тема) |
 | `dokploy-prep` | `/nlab:dokploy-prep` | prep | подготовка репозитория к деплою: `docker-compose.dokploy.yml`, `.env.dokploy.example`, `DEPLOY_DOKPLOY.md` |
 | `dokploy` | `/nlab:dokploy` | deploy | деплой и эксплуатация сервисов на Dokploy-серверах через API |
