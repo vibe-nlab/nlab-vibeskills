@@ -61,7 +61,7 @@ git (`gh auth login` или SSH-ключ).
 |---|---|
 | `.claude-plugin/` | манифесты плагина и маркетплейса |
 | `skills/` | сами скиллы (каждый — папка с `SKILL.md`) |
-| `skills-doc/` | как писать скиллы: `skill_template.md` и `skill_design_best_practices.md` |
+| `skills-doc/` | как писать скиллы: `skill_template.md`, `skill_design_best_practices.md` и `validate_skills.py` |
 
 Каждый скилл самодостаточен: всё, что ему нужно, лежит в его же папке —
 `assets/` (копируется в проект пользователя) и `references/` (только
@@ -74,6 +74,15 @@ git (`gh auth login` или SSH-ключ).
 1. Создайте `skills/<имя>/SKILL.md` по шаблону `skills-doc/skill_template.md`.
 2. Поле `name:` во frontmatter должно совпадать с именем папки — оно же
    станет командой `/nlab:<имя>`.
-3. Поднимите `version` в `.claude-plugin/plugin.json` и
+3. Проверьте перед коммитом:
+
+   ```bash
+   python3 skills-doc/validate_skills.py   # frontmatter, имена, зависимости
+   claude plugin validate . --strict       # манифесты плагина
+   ```
+
+   Нужны оба: `claude plugin validate` разбирает только манифесты и не
+   заглядывает в YAML внутри `SKILL.md` — сломанный frontmatter он пропустит.
+4. Поднимите `version` в `.claude-plugin/plugin.json` и
    `.claude-plugin/marketplace.json`, закоммитьте и запушьте.
-4. У пользователей: `/plugin marketplace update nlab-vibeskills`.
+5. У пользователей: `/plugin marketplace update nlab-vibeskills`.
