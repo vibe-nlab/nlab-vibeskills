@@ -6,14 +6,14 @@
   },
   "metadata": {
     "description": "Приватный реестр скиллов NeuroLab",
-    "version": "4.0.0"
+    "version": "4.0.1"
   },
   "plugins": [
     {
       "name": "nlab",
       "source": "./",
       "description": "Скиллы NeuroLab на весь цикл проекта: /nlab:project-start — короткое Discovery и каркас, /nlab:prototype — кликабельный макет, на котором снимаются требования, /nlab:code-design — архитектура по DDD и модели данных кодом, /nlab:design-ui — дизайн-система поверх shadcn, /nlab:dokploy-prep и /nlab:dokploy — подготовка и деплой.",
-      "version": "4.0.0",
+      "version": "4.0.1",
       "category": "workflow",
       "keywords": [
         "nlab",
