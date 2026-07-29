@@ -2,7 +2,7 @@
 name: dokploy
 title: "Deploy: деплой и эксплуатация сервисов на Dokploy"
 description: Агент по деплою и эксплуатации сервисов на Dokploy-серверах пользователя. Деплой приложений из GitHub (проект → compose → env → домены → deploy → health-проверка), redeploy, логи, диагностика упавших сервисов, обновление env и доменов. При первом запуске подключает сервер (URL + API-ключ от пользователя) и заводит локальный реестр servers.md. Вызывается командой /nlab:dokploy.
-owner: EVR_AG
+owner: alexgl-dev
 version: 1.0.0
 status: in-use
 scope: все проекты, которые хостятся на Dokploy-серверах пользователя (реестр серверов — локальный servers.md)

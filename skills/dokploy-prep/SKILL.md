@@ -2,7 +2,7 @@
 name: dokploy-prep
 title: "Prep: подготовка репозитория к деплою на Dokploy"
 description: Подготовка репозитория/сервиса к деплою на Dokploy — создать docker-compose.dokploy.yml, .env.dokploy.example и DEPLOY_DOKPLOY.md по конвенциям, проверить Dockerfile и healthcheck'и, привести всё к правилам (без Traefik-лейблов, без хост-портов). Вызывается командой /nlab:dokploy-prep. Сам деплой делает тот, кто хостит, — ему передаётся подготовленный репозиторий.
-owner: EVR_AG
+owner: alexgl-dev
 version: 1.0.0
 status: in-use
 scope: любой репозиторий, который планируется хостить на Dokploy-сервере
