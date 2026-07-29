@@ -3,7 +3,7 @@ name: prototype
 title: "Prototype: интерфейс-макет как способ снять требования"
 description: Второй шаг Golden Path NeuroLab, между быстрым Discovery и проектированием. Собирает кликабельный HTML-макет интерфейса будущего агента или сервиса, крутит его вместе с пользователем итерациями и превращает результат в техзадание — измеримые критерии приёмки в intent.md и подзадачи feature-list.json, привязанные к элементам макета. Работает вместо абстрактных вопросов про критерии - человек видит экран и говорит, что не так. Вызывается командой /nlab:prototype. Использовать после /nlab:project-start, а также когда пользователь просит показать, как это будет выглядеть, сделать макет, прототип, мокап или говорит, что не понимает по описанию.
 owner: alexgl-dev
-version: 1.1.0
+version: 1.2.0
 status: in-use
 scope: проекты NeuroLab с любым пользовательским интерфейсом — веб-приложения, диалоговые агенты, внутренние инструменты
 stage: discovery
@@ -82,6 +82,22 @@ SKILL_DIR = ${CLAUDE_PLUGIN_ROOT}/skills/prototype
 их отсутствие: человек начнёт обсуждать то, чего не будет. Удали из
 шаблона всё, чего проекту не нужно.
 
+### Макет рисуется дизайн-языком NeuroLab, а не своей палитрой
+
+Тем же, который потом применит `/nlab:design-ui` на боевом фронте:
+**Montserrat**, `html { font-size: 112.5% }`, тёмная тема на графите
+`#272726`, те же имена токенов, что у shadcn (`--background`, `--card`,
+`--border`, `--primary`…). В шаблоне это уже заложено — своё не выдумывать.
+
+Причина простая: человек согласует то, что видит. Если макет в одной
+палитре, а боевой интерфейс в другой, согласование обесценивается — на
+приёмке выяснится, что «вы показывали не это».
+
+Шрифт подключается **только локально**, стеком с системным запасным:
+макет обязан открываться без интернета (проверка **N**). Если Montserrat у
+человека не установлен, он увидит системный шрифт — это нормально, пропорции
+и цвета всё равно те самые.
+
 ### Данные вымышленные, но правдоподобные
 
 `Иванов И.И.`, `Договор №2026-14 от 12.03.2026`, `1 250 000 ₽` — по таким
@@ -134,20 +150,33 @@ SKILL_DIR = ${CLAUDE_PLUGIN_ROOT}/skills/prototype
 python3 - <<'PY'
 import pathlib, re
 raw = pathlib.Path("project-docs/MOCK.html").read_text()
-t = re.sub(r"<!--.*?-->", "", raw, flags=re.S)
+t = re.sub(r"<!--.*?-->", "", raw, flags=re.S)   # HTML-комментарии
+t = re.sub(r"/\*.*?\*/", "", t, flags=re.S)      # CSS/JS-комментарии — тоже:
+# иначе пояснение «Montserrat, root 112.5%» внутри <style> сойдёт за реальные
+# стили, и проверка подтвердит дизайн-язык, которого в разметке уже нет
 bad = []
 bad += [f"внешняя ссылка: {m}" for m in re.findall(r'(?:src|href)=["\']https?://[^"\']+', t)]
 bad += [f"сетевой вызов: {m}" for m in re.findall(r'\b(?:fetch|XMLHttpRequest|WebSocket|EventSource)\b', t)]
 bad += [f"внешний импорт: {m}" for m in re.findall(r'@import[^;]+', t)]
 if "это макет" not in t.lower():
     bad.append("нет баннера «это макет» в видимой части страницы")
+# дизайн-язык: макет должен быть превью боевого UI, а не своей палитрой
+for token in ("--background", "--foreground", "--card", "--border", "--primary"):
+    if token not in t:
+        bad.append(f"нет токена {token} — макет рисуется не дизайн-языком NeuroLab")
+if "112.5%" not in t:
+    bad.append("нет root font-size: 112.5% — размер разойдётся с боевым UI")
+if "Montserrat" not in t:
+    bad.append("нет Montserrat в стеке шрифтов")
 print("\n".join(bad) if bad else "OK: макет самодостаточен и помечен")
 PY
 
 # O. Подзадачи привязаны к элементам макета. Ожидание: OK.
 python3 - <<'PY'
 import json, pathlib, re
-mock = re.sub(r"<!--.*?-->", "", pathlib.Path("project-docs/MOCK.html").read_text(), flags=re.S)
+mock = pathlib.Path("project-docs/MOCK.html").read_text()
+mock = re.sub(r"<!--.*?-->", "", mock, flags=re.S)
+mock = re.sub(r"/\*.*?\*/", "", mock, flags=re.S)
 ids = set(re.findall(r'data-mock-id="([^"]+)"', mock))
 data = json.loads(pathlib.Path("project-docs/feature-list.json").read_text())
 if not isinstance(data, list):
@@ -268,7 +297,7 @@ grep -n 'Макет согласован:' project-docs/NOTES.md
 | Что дальше | Кто делает |
 |---|---|
 | Спецификация и архитектура по макету | `/nlab:code-design` |
-| Боевой UI по дизайн-системе NeuroLab | `/nlab:design-ui` (макет — вход, не результат) |
+| Боевой UI по дизайн-системе NeuroLab | `/nlab:design-ui` — вызывается **до** написания экранов, макет ему вход |
 | Подготовка к деплою | `/nlab:dokploy-prep` |
 | Деплой | `/nlab:dokploy` |
 

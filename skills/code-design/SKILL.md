@@ -3,7 +3,7 @@ name: code-design
 title: "Code Design: архитектура проекта по DDD"
 description: Третий этап Golden Path NeuroLab. Проектирует архитектуру бэкенда по DDD — единый язык домена, слои domain/application/infrastructure, границы доменных областей, карта модулей, точки входа из макета, границы автономии и ADR на каждое значимое решение. Модели данных пишет сразу настоящим кодом в backend/domain/models.py, а не документом — контракт фиксируется до реализации, но один раз. Работает в project-docs/arch/, создаёт скелет папок бэкенда, пересобирает PLAN.html. Вызывается командой /nlab:code-design. Использовать после /nlab:prototype, когда есть согласованный макет и критерии, либо когда пользователь просит спроектировать архитектуру, схему агентов, структуру бэкенда или говорит «как это будет устроено».
 owner: alexgl-dev
-version: 3.1.0
+version: 3.1.1
 status: in-use
 scope: проекты NeuroLab, прошедшие /nlab:project-start — сервисы, агенты, мультиагентные системы; этап между Discovery и Prep
 stage: design
@@ -320,7 +320,7 @@ import pathlib, re, sys
 mockf = pathlib.Path("project-docs/MOCK.html")
 if not mockf.exists():
     print("OK: макета нет — проект без интерфейса"); sys.exit()
-mock = re.sub(r"<!--.*?-->", "", mockf.read_text(), flags=re.S)
+mock = re.sub(r"/\*.*?\*/", "", re.sub(r"<!--.*?-->", "", mockf.read_text(), flags=re.S), flags=re.S)
 ids = set(re.findall(r'data-mock-id="([^"]+)"', mock))
 arch = pathlib.Path("project-docs/arch/ARCH.md").read_text()
 missing = sorted(i for i in ids if i not in arch)
@@ -473,7 +473,7 @@ PY
 | Что дальше | Кто делает |
 |---|---|
 | Реализация | основная сессия + субагенты на Sonnet-5: одна подзадача — один субагент, в задаче элемент макета и модуль |
-| UI по дизайн-системе NeuroLab | скилл `/nlab:design-ui` |
+| UI по дизайн-системе NeuroLab | скилл `/nlab:design-ui` — **до** написания экранов, не после |
 | Публикация агента на платформе Assay | скилл `/agent-for-assay` — генерирует файлы публикации из `arch/ARCH.md` §9 |
 | Подготовка репозитория к деплою | скилл `/nlab:dokploy-prep` |
 | Деплой | скилл `/nlab:dokploy` |
