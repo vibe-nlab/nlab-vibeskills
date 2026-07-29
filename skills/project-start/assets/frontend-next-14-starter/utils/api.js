@@ -2,10 +2,10 @@
  * Утилита для API запросов с автоматическим добавлением Authorization header
  */
 
-const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_URL ||
-  process.env.BACKEND_URL ||
-  "http://192.168.0.129:3001/api";
+// Запасной вариант — относительный путь: работает и в деве через rewrites,
+// и в проде за обратным прокси. Абсолютный адрес чьей-то машины сюда не
+// вписывать: он молча уводит запросы мимо сервиса.
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "/api";
 
 /**
  * Получить access token из localStorage

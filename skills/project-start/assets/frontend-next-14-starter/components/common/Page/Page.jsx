@@ -6,16 +6,18 @@ import useStore from "hooks/useStore";
 
 import { removeQueries } from "utils/string";
 
+// Заполнить под свой проект при подключении темплейта.
+// Публичный адрес — из env, чтобы дев/прод не расходились и чтобы в коде
+// не оседал домен чужого проекта.
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "";
+
 const seo = {
-  title: "Griplo CRM",
-  description:
-    "AI-powered product photo and video creation for marketplace sellers",
-  // url: "https://www.reclaim-your-dna-html.heycusp.com",
-  url: "https://app.griplo.com/",
-  // domain: "https://www.reclaim-your-dna-html.heycusp.us",
-  domain: "https://app.griplo.com/",
+  title: "CHANGE_ME — название проекта",
+  description: "CHANGE_ME — одно предложение о том, что делает сервис",
+  url: SITE_URL,
+  domain: SITE_URL,
   image: "",
-  theme: "#000000",
+  theme: "#272726",
 };
 
 const Page = ({

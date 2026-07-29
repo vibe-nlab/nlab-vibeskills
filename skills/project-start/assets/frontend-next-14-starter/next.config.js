@@ -26,14 +26,14 @@ const nextConfig = {
       },
     ];
   },
+  // ВНИМАНИЕ: всё, что попадает в `env`, Next.js инлайнит в браузерный
+  // бандл. Секретам (паролям SMTP, ключам API) здесь не место — читай их
+  // на сервере через process.env напрямую, в getServerSideProps или в
+  // route handler. В бандл выносим только заведомо публичное, и только
+  // из окружения — без захардкоженных адресов.
   env: {
-    BACKEND_URL: process.env.BACKEND_URL,
-    NEXT_PUBLIC_API_URL: "http://localhost:3001/api",
-    SMTP_USER: process.env.SMTP_USER,
-    SMTP_PASS: process.env.SMTP_PASS,
-    SMTP_HOST: process.env.SMTP_HOST,
-    SMTP_PORT: process.env.SMTP_PORT,
-    SMTP_SECURE: process.env.SMTP_SECURE,
+    NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL,
+    NEXT_PUBLIC_SITE_URL: process.env.NEXT_PUBLIC_SITE_URL,
   },
 };
 
