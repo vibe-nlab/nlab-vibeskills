@@ -9,3 +9,5 @@ dokploy/servers.md
 # Артефакты сборки темплейтов внутри скиллов
 skills/**/assets/**/node_modules/
 skills/**/assets/**/.next/
+__pycache__/
+*.pyc
