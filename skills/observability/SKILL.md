@@ -1,15 +1,15 @@
 ---
 name: observability
 title: "Observability: трейсинг агентов в общий MLflow"
-description: "Подключение проекта к обсервабилити NeuroLab — трейсинг pydantic-ai-агентов в общий MLflow Tracking Server через mlflow.pydantic_ai.autolog(). В трейсы попадают промпты, сообщения пользователя, вызовы LLM/инструментов/MCP, structured output и токены. Адрес сервера — только через MLFLOW_TRACKING_URI в env; пустая переменная = трейсинг выключен, приложение работает как обычно. Вызывается командой /nlab:observability. Использовать, когда просят подключить логирование/трейсинг/мониторинг агента, «посмотреть, какие промпты уходят», или при реализации бэкенда с агентами после /nlab:code-design."
+description: "Подключение проекта к обсервабилити NeuroLab — трейсинг pydantic-ai-агентов в общий MLflow Tracking Server. Флейвор mlflow.pydantic_ai работает только с pydantic-ai 1.x; на 2.x скилл переключается на нативную OTel-инструментацию через мост MLflow. В трейсы попадают промпты, сообщения пользователя, вызовы LLM/инструментов/MCP, structured output и токены. Адрес сервера — только через MLFLOW_TRACKING_URI в env; пустая переменная = трейсинг выключен, приложение работает как обычно. Вызывается командой /nlab:observability. Использовать, когда просят подключить логирование/трейсинг/мониторинг агента, «посмотреть, какие промпты уходят», или при реализации бэкенда с агентами после /nlab:code-design."
 owner: alexgl-dev
-version: 0.1.0
+version: 0.2.0
 status: review
 scope: любой проект с агентами на pydantic-ai (бэкенд по конвенциям NeuroLab)
 stage: prep
 depends_on: []
 autonomy_level: R3
-last_reviewed: 2026-07-31
+last_reviewed: 2026-08-04
 registry_url: https://github.com/sber-nlab/nlab-vibeskills
 update_check: per_session
 ---
@@ -61,9 +61,30 @@ update_check: per_session
 - **API не по памяти.** Перед написанием кода сверь актуальный API:
   интеграция MLflow×PydanticAI —
   <https://mlflow.org/docs/latest/genai/tracing/integrations/listing/pydantic_ai/>,
-  дока pydantic-ai — <https://ai.pydantic.dev/llms.txt>. Базовый вызов на
-  момент `last_reviewed`: `import mlflow; mlflow.pydantic_ai.autolog()`
-  после `mlflow.set_tracking_uri(...)` и `mlflow.set_experiment(...)`.
+  дока pydantic-ai — <https://ai.pydantic.dev/llms.txt> (домен переехал на
+  <https://pydantic.dev/docs/ai/llms.txt>).
+- **⚠️ Флейвор `mlflow.pydantic_ai` написан под pydantic-ai 1.x — на 2.x он
+  ломает КАЖДОЕ создание агента.** Дока MLflow предлагает
+  `Agent("model", instrument=True)`, и флейвор ровно этот аргумент подставляет
+  в `Agent.__init__` патчем. В pydantic-ai 2.x аргумент из конструктора убрали —
+  он переехал в `Agent.instrument_all()`. Коварство в том, что `autolog()`
+  отрабатывает молча и успешно, а `TypeError` вылезает позже, на каждом вызове
+  агента. **Поэтому после `autolog()` обязательна проба пробным агентом** —
+  шаблон `assets/tracing.py` её делает; не выбрасывай её при адаптации.
+  Проверено на mlflow 3.15.1 + pydantic-ai 2.23.0, 2026-08-04.
+- **Рабочий путь для pydantic-ai 2.x — нативная OTel-инструментация через мост
+  MLflow:** `Agent.instrument_all(InstrumentationSettings(tracer_provider=
+  mlflow.tracing.get_bridged_tracer_provider(), include_content=True))`. Мост
+  существует ровно для этого. Спаны выходят богаче флейвора: `invoke_agent`
+  типа AGENT с вложенным CHAT_MODEL и атрибутами `gen_ai.*` (модель, провайдер,
+  токены, сообщения) по семантическим конвенциям OTel. Это **не** отклонение от
+  дефолта компании — тот же MLflow, другой способ отдать ему спаны.
+- **Спаны шагов и спаны агента должны попасть в ОДИН трейс.** Без
+  `MLFLOW_TRACE_PROPAGATE_TO_OTEL_CONTEXT=True` инструментация pydantic-ai не
+  видит родителя из `mlflow.start_span()` и уезжает отдельным трейсом: в UI два
+  несвязанных дерева на один шаг, а тег сессии остаётся на пустом. Переменная
+  читается при инициализации провайдера, поэтому выставляется ДО первого
+  обращения к mlflow (в шаблоне — в начале `setup_tracing()`).
 - **Experiment = имя проекта** (имя выданного репозитория). Один проект —
   один experiment, не плоди experiment'ы на окружения: dev/prod различай
   тегом, если понадобится.
@@ -83,9 +104,10 @@ update_check: per_session
   `mlflow ui` на localhost, укажи его в `MLFLOW_TRACKING_URI`, прогони один
   вызов агента и посмотри трейс — так интеграция проверяется ещё до того,
   как появится общий сервер. В коммит локальный адрес не тащи.
-- Нативная OTel-инструментация pydantic-ai (`Agent(instrument=True)`) и
-  Langfuse — осознанные альтернативы, но **дефолт компании — MLflow**;
-  отклонение только решением пользователя с записью в `NOTES.md`.
+- **Langfuse и прочие бэкенды трейсинга** — осознанные альтернативы, но
+  **дефолт компании — MLflow**; отклонение только решением пользователя с
+  записью в `NOTES.md`. Нативная OTel-инструментация pydantic-ai альтернативой
+  MLflow не является: через мост выше она пишет ровно в MLflow.
 
 ## 5. Enforcement — обязательные правила (нарушение = блокировка)
 
@@ -133,7 +155,9 @@ update_check: per_session
 
 Append-only запись в `EVIDENCE.md` (проверяемые формулировки):
 
-- дата; файлы созданы/изменены; версия mlflow;
+- дата; файлы созданы/изменены; версии mlflow и pydantic-ai;
+- каким режимом включился трейсинг (`pydantic_ai` / `pydantic_ai_otel` /
+  `openai`) — строка в логе старта; спаны шага и агента в ОДНОМ трейсе;
 - прогон с пустым `MLFLOW_TRACKING_URI` — приложение стартует, агент
   отвечает;
 - прогон с сервером (общим или локальным) — ссылка/скрин трейса, что в нём

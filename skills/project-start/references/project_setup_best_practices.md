@@ -168,7 +168,7 @@ CLI-агенты как subprocess из продукта **нельзя**: эт�
 
 Каждый проект с агентами подключается к трейсингу компании — общему
 MLflow Tracking Server. Интеграцию делает скилл **`/nlab:observability`**
-(не изобретать свою): `mlflow.pydantic_ai.autolog()` + модуль
+(не изобретать свою): автолог MLflow + модуль
 `backend/infrastructure/tracing.py` + `MLFLOW_TRACKING_URI` в env.
 
 - В трейсы автоматически попадают: промпты и сообщения, вызовы LLM
