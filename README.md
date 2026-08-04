@@ -69,14 +69,14 @@
 
 ## Установка
 
-Репозиторий приватный: нужен доступ на чтение к `sber-nlab/nlab-vibeskills`
+Репозиторий приватный: нужен доступ на чтение к `vibe-nlab/nlab-vibeskills`
 и настроенный git (`gh auth login` или SSH-ключ). Claude Code клонирует его
 обычным `git` под вашей учётной записью — публиковать ничего не требуется.
 
 В Claude Code:
 
 ```
-/plugin marketplace add sber-nlab/nlab-vibeskills
+/plugin marketplace add vibe-nlab/nlab-vibeskills
 /plugin install nlab@nlab-vibeskills
 ```
 
@@ -86,7 +86,7 @@
 Если по HTTPS не проходит авторизация, добавьте маркетплейс по SSH:
 
 ```
-/plugin marketplace add git@github.com:sber-nlab/nlab-vibeskills.git
+/plugin marketplace add git@github.com:vibe-nlab/nlab-vibeskills.git
 ```
 
 ### Обновление

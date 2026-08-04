@@ -17,6 +17,7 @@ https://mlflow.org/docs/latest/genai/tracing/integrations/listing/pydantic_ai/
 import contextlib
 import logging
 import os
+import sys
 
 logger = logging.getLogger(__name__)
 
@@ -127,6 +128,50 @@ def _enable_autolog(mlflow) -> str:
 
 
 @contextlib.contextmanager
+def _quiet_span(cm, what: str):
+    """Открывает спан так, что сбои САМОГО трейсинга уходят в лог, а исключение
+    тела проходит наружу неизменным.
+
+    Так выглядит грабля, ради которой эта обёртка существует. Соблазнительно
+    написать проще — обернуть весь блок со спаном в `try/except`:
+
+        try:
+            with mlflow.start_span(name=name):
+                yield
+        except Exception:
+            logger.exception("сбой трейсинга")
+            yield                      # ← второй yield на одном проходе
+
+    Но `@contextmanager` бросает исключение тела внутрь генератора, ровно в точку
+    `yield`. То есть в этот `except` прилетает не сбой mlflow, а штатная ошибка шага —
+    её проглатывают, генератор доходит до второго `yield`, и наружу вместо неё летит
+    `RuntimeError: generator didn't stop after throw()`. Настоящая ошибка теряется,
+    в логе — враньё про «сбой трейсинга». Поэтому `yield` тела не должен стоять
+    внутри `except`, а закрытие спана делается руками.
+
+    Спан не открылся — отдаётся None, вызывающий код продолжает работу без трейса.
+    """
+    try:
+        span = cm.__enter__()
+    except Exception:
+        logger.exception("не удалось открыть спан %s — работа продолжается", what)
+        yield None
+        return
+    try:
+        yield span
+    except BaseException:
+        try:
+            cm.__exit__(*sys.exc_info())   # даём mlflow записать ошибку в спан
+        except Exception:
+            logger.exception("сбой закрытия спана %s — работа продолжается", what)
+        raise                              # ошибка тела идёт наружу как есть
+    try:
+        cm.__exit__(None, None, None)
+    except Exception:
+        logger.exception("сбой закрытия спана %s — работа продолжается", what)
+
+
+@contextlib.contextmanager
 def run_span(name: str, session_id: str = "", steps: int = 0, inputs: dict | None = None):
     """Корневой спан на ВЕСЬ запуск: прогон конвейера, обработку запроса, диалог.
 
@@ -159,7 +204,8 @@ def run_span(name: str, session_id: str = "", steps: int = 0, inputs: dict | Non
     Выход ставится и при ошибке (`finally`): оборванный запуск в списке обязан быть
     отличим от успешного.
 
-    Трейсинг выключен — отдаётся пустой словарь, вызывающий код не меняется.
+    Трейсинг выключен или сломался — отдаётся пустой словарь, вызывающий код не
+    меняется. Исключение самого запуска всегда доходит до вызывающего как есть.
     """
     out: dict = {}
     if not _enabled:
@@ -168,13 +214,15 @@ def run_span(name: str, session_id: str = "", steps: int = 0, inputs: dict | Non
     try:
         import mlflow
         from mlflow.entities import SpanType
+
+        # CHAIN, а не UNKNOWN: по типу MLflow рисует иконку и группирует спаны в UI
+        cm = mlflow.start_span(name=name, span_type=SpanType.CHAIN)
     except Exception:  # noqa: BLE001
         logger.exception("mlflow недоступен — запуск пойдёт без трейса")
         yield out
         return
-    try:
-        # CHAIN, а не UNKNOWN: по типу MLflow рисует иконку и группирует спаны в UI
-        with mlflow.start_span(name=name, span_type=SpanType.CHAIN) as span:
+    with _quiet_span(cm, name) as span:
+        if span is not None:
             try:
                 if session_id:
                     mlflow.update_current_trace(
@@ -195,16 +243,17 @@ def run_span(name: str, session_id: str = "", steps: int = 0, inputs: dict | Non
                     span.set_inputs(inputs)
             except Exception:
                 logger.exception("не удалось проставить теги трейса запуска")
-            try:
-                yield out
-            finally:
+        try:
+            yield out
+        finally:
+            # Выход ставится и на упавшем запуске: оборванный обязан быть отличим
+            # от успешного. Спан к этому моменту ещё открыт — закрывает его
+            # `_quiet_span` после того, как исключение пройдёт через этот finally.
+            if span is not None:
                 try:
                     span.set_outputs(out)
                 except Exception:
                     logger.exception("не удалось записать выход трейса запуска")
-    except Exception:
-        logger.exception("сбой трейсинга запуска %s — работа продолжается", name)
-        yield out
 
 
 @contextlib.contextmanager
@@ -218,31 +267,28 @@ def step_span(name: str, session_id: str = ""):
     доработка постфактум), спан станет корнем своего трейса — это допустимо.
 
     Трейсинг выключен или сломался — контекст пустой, вызывающий код об этом
-    не знает.
+    не знает. Исключение самого шага всегда доходит до вызывающего как есть:
+    ошибку шага пробрасываем, ошибку трейсинга — в лог (см. `_quiet_span`).
     """
     if not _enabled:
         yield
         return
     try:
         import mlflow
+
+        cm = mlflow.start_span(name=name or "step")
     except Exception:  # noqa: BLE001 — mlflow не поставлен: не повод ронять работу
         logger.exception("mlflow недоступен — шаг пойдёт без трейса")
         yield
         return
-    try:
-        with mlflow.start_span(name=name or "step") as span:
-            if session_id:
-                try:
-                    mlflow.update_current_trace(
-                        metadata={"mlflow.trace.session": session_id})
-                    span.set_attribute("session_id", session_id)
-                except Exception:
-                    logger.exception("не удалось проставить теги трейса")
-            yield
-    except Exception:
-        # Исключение самого MLflow (сеть, недоступный сервер) не должно подменять
-        # собой исключение шага: ошибку шага пробрасываем, ошибку трейсинга — в лог.
-        logger.exception("сбой трейсинга шага %s — работа продолжается", name)
+    with _quiet_span(cm, name) as span:
+        if span is not None and session_id:
+            try:
+                mlflow.update_current_trace(
+                    metadata={"mlflow.trace.session": session_id})
+                span.set_attribute("session_id", session_id)
+            except Exception:
+                logger.exception("не удалось проставить теги трейса")
         yield
 
 

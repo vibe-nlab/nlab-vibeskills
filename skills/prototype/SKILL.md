@@ -3,14 +3,14 @@ name: prototype
 title: "Prototype: интерфейс-макет как способ снять требования"
 description: Второй шаг Golden Path NeuroLab, между быстрым Discovery и проектированием. Собирает кликабельный HTML-макет интерфейса будущего агента или сервиса, крутит его вместе с пользователем итерациями и превращает результат в техзадание — измеримые критерии приёмки в intent.md и подзадачи feature-list.json, привязанные к элементам макета. Работает вместо абстрактных вопросов про критерии - человек видит экран и говорит, что не так. Вызывается командой /nlab:prototype. Использовать после /nlab:project-start, а также когда пользователь просит показать, как это будет выглядеть, сделать макет, прототип, мокап или говорит, что не понимает по описанию.
 owner: alexgl-dev
-version: 1.2.0
+version: 1.2.1
 status: in-use
 scope: проекты NeuroLab с любым пользовательским интерфейсом — веб-приложения, диалоговые агенты, внутренние инструменты
 stage: discovery
 depends_on: [project-start]
 autonomy_level: R4
-last_reviewed: 2026-07-28
-registry_url: https://github.com/sber-nlab/nlab-vibeskills
+last_reviewed: 2026-08-04
+registry_url: https://github.com/vibe-nlab/nlab-vibeskills
 update_check: per_session
 ---
 

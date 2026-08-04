@@ -1,7 +1,7 @@
 # Dokploy API — проверенный справочник
 
 Все вызовы: `<url>/api/<endpoint>`, где `<url>` и токен — из записи выбранного
-сервера в `servers.md` (лежит рядом с SKILL.md).
+сервера в реестре `~/.claude/nlab/dokploy-servers.md`.
 Заголовки: `x-api-key: <api-key>` (+ `Content-Type: application/json` для POST).
 
 GET-эндпоинты принимают параметры query-строкой, POST — JSON-телом.

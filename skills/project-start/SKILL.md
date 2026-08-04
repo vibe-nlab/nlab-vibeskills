@@ -3,14 +3,14 @@ name: project-start
 title: "Project Start: старт проекта по Golden Path NeuroLab"
 description: Точка входа в любой новый проект NeuroLab. Сначала выясняет уровень подачи — разработчик перед ним или человек без кода — и дальше объясняет всё соответственно. Проводит короткое Discovery (гипотеза результата, границы задачи, имя проекта) — детальные требования снимает /nlab:prototype на макете, фиксирует его в intent.md, разворачивает обязательный каркас — AGENTS.md в корне и папку project-docs/ с NOTES.md, EVIDENCE.md, feature-list.json, закрепляет дефолтный стек компании (React из темплейта, pydantic-ai, LLM только через OpenAI-совместимый API) и проверяет доступы — выданный git-репозиторий и ключ LLM. Собирает PLAN.html — разбор проекта простым языком для не-инженера. Вызывается командой /nlab:project-start. Использовать, когда пользователь начинает новый проект, говорит «начать проект», «с чего начать», «новый сервис/агент/интерфейс» или просит сразу писать код без Discovery.
 owner: alexgl-dev
-version: 4.1.0
+version: 4.1.1
 status: in-use
 scope: любой новый проект NeuroLab (сервис, агент, мультиагентная система, фронтенд) — до выбора стека и первой строки кода
 stage: discovery
 depends_on: []
 autonomy_level: R4
-last_reviewed: 2026-07-28
-registry_url: https://github.com/sber-nlab/nlab-vibeskills
+last_reviewed: 2026-08-04
+registry_url: https://github.com/vibe-nlab/nlab-vibeskills
 update_check: per_session
 ---
 

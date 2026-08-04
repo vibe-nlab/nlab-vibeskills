@@ -3,14 +3,14 @@ name: design-ui
 title: "Design UI: дизайн-система NeuroLab для shadcn-интерфейсов"
 description: Дизайн-система NeuroLab поверх shadcn/ui — построить UI оригинальным скиллом shadcn (обязательная зависимость, ставится отдельно), затем применить фирменные правки — шрифт Montserrat (самохост, кириллица) и укрупнённый размер (root 112.5% → 18px) в обеих темах; в тёмной теме — графитово-серые/тёпло-бежевые нейтрали (#272726 и производные токены) вместо дефолтной чёрной; в светлой цвета не трогать; у сервисов с несколькими разделами (дашборды, вкладки меню) навигация — сайдбаром (shadcn Sidebar), не табами и не навбаром. Вызывается командой /nlab:design-ui. Использовать, когда пользователь просит «дизайн NeuroLab», «в стиле nlab», «наш графит» или собирает shadcn-интерфейс, который должен выглядеть по конвенциям NeuroLab.
 owner: alexgl-dev
-version: 1.2.0
+version: 1.2.1
 status: in-use
 scope: все shadcn-интерфейсы NeuroLab (новые и существующие проекты)
 stage: design
 depends_on: [shadcn]
 autonomy_level: R4
-last_reviewed: 2026-07-29
-registry_url: https://github.com/sber-nlab/nlab-vibeskills
+last_reviewed: 2026-08-04
+registry_url: https://github.com/vibe-nlab/nlab-vibeskills
 update_check: per_session
 allowed-tools: Bash(npx shadcn@latest *), Bash(pnpm dlx shadcn@latest *), Bash(bunx --bun shadcn@latest *)
 ---

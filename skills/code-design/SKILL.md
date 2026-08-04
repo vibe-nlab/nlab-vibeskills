@@ -3,14 +3,14 @@ name: code-design
 title: "Code Design: архитектура проекта по DDD"
 description: Третий этап Golden Path NeuroLab. Проектирует архитектуру бэкенда по DDD — единый язык домена, слои domain/application/infrastructure, границы доменных областей, карта модулей, точки входа из макета, границы автономии и ADR на каждое значимое решение. Модели данных пишет сразу настоящим кодом в backend/domain/models.py, а не документом — контракт фиксируется до реализации, но один раз. Работает в project-docs/arch/, создаёт скелет папок бэкенда, пересобирает PLAN.html. Вызывается командой /nlab:code-design. Использовать после /nlab:prototype, когда есть согласованный макет и критерии, либо когда пользователь просит спроектировать архитектуру, схему агентов, структуру бэкенда или говорит «как это будет устроено».
 owner: alexgl-dev
-version: 3.1.1
+version: 3.1.2
 status: in-use
 scope: проекты NeuroLab, прошедшие /nlab:project-start — сервисы, агенты, мультиагентные системы; этап между Discovery и Prep
 stage: design
 depends_on: [project-start]
 autonomy_level: R3
-last_reviewed: 2026-07-28
-registry_url: https://github.com/sber-nlab/nlab-vibeskills
+last_reviewed: 2026-08-04
+registry_url: https://github.com/vibe-nlab/nlab-vibeskills
 update_check: per_session
 ---
 
@@ -156,7 +156,7 @@ docstring в самом классе, а не отдельный докумен�
 - **бюджет токенов** и остановка до его исчерпания, а не после;
 - **владелец, видимость, права** по наименьшей привилегии;
 - **согласие на автономное улучшение** — «да» требует репозитория в
-  организации `sber-nlab`;
+  организации `vibe-nlab`;
 - **критерии приёмки в машинопроверяемом виде** — это же основа тестов.
 
 Проект не агент — написать «не применимо» и идти дальше. Раздел не удалять:

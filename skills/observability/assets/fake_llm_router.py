@@ -15,68 +15,56 @@
     python tools/fake_llm_router.py --port 8765
     LLM_API_URL=http://127.0.0.1:8765/v1/chat/completions LLM_API_KEY=fake …
 
-Ответы подбираются по системному промпту шага. **Под свой проект замените
-`VERIFIER`/`GENERIC`/`REPORT` и функцию `pick()`**: важно, чтобы ответ был достаточно
-правдоподобным для следующего шага, иначе конвейер не дойдёт до конца и проверка выйдет
-неполной.
+Ответы ниже — **обезличенные рыбы, их положено заменить своими**: правится один блок
+`ROUTES` (маркер в системном промпте → ответ). Единственное требование к ответу — он
+должен быть достаточно правдоподобным для следующего шага и в том формате, который
+ждёт ваш парсер. Иначе конвейер упадёт на разборе, до конца не дойдёт, и проверка
+трейсинга выйдет неполной — а проверяется именно полный путь.
 """
 import argparse
 import json
 import time
-from http.server import BaseHTTPRequestHandler, HTTPServer
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-VERIFIER = """```yaml
-meta_verdicts:
-  misleads: {verdict: false, comment: "заглушка"}
-  reputation: {verdict: works, comment: "заглушка"}
-  ca_language: {verdict: true, comment: "заглушка"}
-verified:
-  - observation: "Заглушка: наблюдение-риск"
-    evidence: "цитата из паспорта"
-    polarity: risk
-    severity: major
-    ekk_category: product
-    rule_id: null
-  - observation: "Заглушка: наблюдение-преимущество"
-    evidence: "цитата из паспорта"
-    polarity: advantage
-    severity: minor
-    ekk_category: product
-    rule_id: null
-ekk_heatmap:
-  product: 2
+# ── НИЖЕ ДО КОНЦА БЛОКА — ЗАМЕНИТЬ ПОД СВОЙ ПРОЕКТ ─────────────────────────────
+# Рыбы намеренно обезличены: свои поля, свои имена шагов, свой формат.
+
+STRUCTURED = """```yaml
+items:
+  - title: "Заглушка: первый элемент"
+    kind: risk
+    detail: "ответ заглушки, живая модель не вызывалась"
+  - title: "Заглушка: второй элемент"
+    kind: advantage
+    detail: "ответ заглушки, живая модель не вызывалась"
 ```"""
 
-GENERIC = """```yaml
-observations:
-  - observation: "Заглушка: наблюдение стадии"
-    evidence: "цитата из паспорта"
-    polarity: risk
-    rule_id: null
-    mechanism: null
-    argumentation: "ответ заглушки, живая модель не вызывалась"
-```"""
-
-REPORT = """## Отчёт (заглушка)
+SUMMARY = """## Итог (заглушка)
 
 Живая модель не вызывалась — это ответ локальной заглушки роутера.
 
-report_markdown: |
-  ### Сильные стороны
-  - заглушка
-  ### Зоны роста
-  - заглушка
+- пункт-заглушка 1
+- пункт-заглушка 2
 """
+
+GENERIC = """```yaml
+result: ok
+note: "ответ заглушки, живая модель не вызывалась"
+```"""
+
+# Маркер в системном промпте → ответ. Первое совпадение выигрывает, ни одного —
+# GENERIC. Маркерами удобно делать имена ролей/шагов из ваших системных промптов.
+ROUTES = [
+    (("проверь", "verify", "check"), STRUCTURED),
+    (("отчёт", "итог", "report", "summary"), SUMMARY),
+]
 
 
 def pick(system: str) -> str:
     s = (system or "").lower()
-    if "верификатор" in s or "verifier" in s:
-        return VERIFIER
-    if "синтезатор" in s or "отчёт" in s:
-        return REPORT
-    if "переводчик" in s:                      # дайджест
-        return "**Вход стадии:** заглушка.\n**Что проверялось:** ничего, это заглушка."
+    for markers, answer in ROUTES:
+        if any(m in s for m in markers):
+            return answer
     return GENERIC
 
 
@@ -114,4 +102,8 @@ if __name__ == "__main__":
     ap.add_argument("--port", type=int, default=8765)
     args = ap.parse_args()
     print(f"заглушка роутера на http://127.0.0.1:{args.port}/v1/chat/completions", flush=True)
-    HTTPServer(("127.0.0.1", args.port), Handler).serve_forever()
+    # Threading, а не HTTPServer: одиночный сервер обрабатывает запросы строго по
+    # очереди, и параллельные шаги конвейера выстраиваются в цепочку — в трейсе
+    # веер параллельных шагов выглядит последовательностью, то есть проверяется
+    # не то, что работает в проде.
+    ThreadingHTTPServer(("127.0.0.1", args.port), Handler).serve_forever()
