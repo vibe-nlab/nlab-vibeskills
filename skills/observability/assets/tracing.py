@@ -208,7 +208,7 @@ def run_span(name: str, session_id: str = "", steps: int = 0, inputs: dict | Non
 
 
 @contextlib.contextmanager
-def step_span(name: str, session_id: str = ""):
+def step_span(name: str, session_id: str = "", inputs: dict | None = None):
     """Спан одного шага — стадии конвейера, обработки запроса, того, что в проекте
     является единицей работы. Вкладывается в `run_span()`, если тот открыт.
 
@@ -217,33 +217,62 @@ def step_span(name: str, session_id: str = ""):
     `run_span()`. Если шаг выполняется вне запуска (разовый вызов, фоновая
     доработка постфактум), спан станет корнем своего трейса — это допустимо.
 
-    Трейсинг выключен или сломался — контекст пустой, вызывающий код об этом
-    не знает.
+    **Системный промпт, вход и ответ кладите СЮДА, в `inputs`/`outputs` этого спана.**
+    Соблазн передать промпт через `Agent(system_prompt=…)` — чтобы он лёг в сообщения и
+    отрисовался в чат-виде — заканчивается плохо: главный трейс многошагового запуска
+    перестаёт экспортироваться вовсе, в MLflow доезжают только отдельные фоновые трейсы
+    (проверено на 16-шаговом конвейере, mlflow 3.15.1 + pydantic-ai 2.23). Через
+    `inputs` спана те же 32 КБ промпта уезжают нормально — дело не в объёме, а в
+    сериализации сообщений агента.
+
+        with step_span("шаг-1", session_id=run_id,
+                       inputs={"системный промпт": system, "вход": user}) as out:
+            result = await agent.run(user)
+            out.update({"ответ модели": result.output, "токены": usage})
+
+    Трейсинг выключен или сломался — отдаётся пустой словарь, вызывающий код не меняется.
     """
     if not _enabled:
-        yield
+        yield {}
         return
     try:
         import mlflow
     except Exception:  # noqa: BLE001 — mlflow не поставлен: не повод ронять работу
         logger.exception("mlflow недоступен — шаг пойдёт без трейса")
-        yield
+        yield {}
         return
     try:
         with mlflow.start_span(name=name or "step") as span:
+            if inputs:
+                try:
+                    span.set_inputs(inputs)
+                except Exception:
+                    logger.exception("не удалось записать вход спана шага")
             if session_id:
                 try:
                     mlflow.update_current_trace(
                         metadata={"mlflow.trace.session": session_id})
+                    # session.id — тот же приоритет, что в run_span: иначе сессию
+                    # перетрёт gen_ai.conversation.id от pydantic-ai. Нужно и здесь:
+                    # фоновые шаги становятся корнями собственных трейсов.
+                    span.set_attribute("session.id", session_id)
                     span.set_attribute("session_id", session_id)
                 except Exception:
                     logger.exception("не удалось проставить теги трейса")
-            yield
+            out: dict = {}
+            try:
+                yield out
+            finally:
+                try:
+                    if out:
+                        span.set_outputs(out)
+                except Exception:
+                    logger.exception("не удалось записать выход спана шага")
     except Exception:
         # Исключение самого MLflow (сеть, недоступный сервер) не должно подменять
         # собой исключение шага: ошибку шага пробрасываем, ошибку трейсинга — в лог.
         logger.exception("сбой трейсинга шага %s — работа продолжается", name)
-        yield
+        yield {}
 
 
 def tag_current_trace(
