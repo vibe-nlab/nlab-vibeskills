@@ -127,7 +127,7 @@ def _enable_autolog(mlflow) -> str:
 
 
 @contextlib.contextmanager
-def run_span(name: str, session_id: str = "", steps: int = 0):
+def run_span(name: str, session_id: str = "", steps: int = 0, inputs: dict | None = None):
     """Корневой спан на ВЕСЬ запуск: прогон конвейера, обработку запроса, диалог.
 
     **Обязателен для многошаговых систем.** Без него каждый `step_span()` становится
@@ -146,19 +146,35 @@ def run_span(name: str, session_id: str = "", steps: int = 0):
     contextvars в момент создания задачи, а спаны OTel живут именно в них —
     отдельно ничего пробрасывать не нужно.
 
-    Трейсинг выключен — контекст пустой, вызывающий код об этом не знает.
+    **Вход и выход — не украшение.** MLflow строит превью строки в списке трейсов
+    (`request_preview` / `response_preview`) именно из входа и выхода КОРНЕВОГО спана.
+    Не заполнить их — получить список пустых строк: видно, что запуски были, и ничего
+    больше, ни что подавали на вход, ни чем кончилось. Выход отдаётся через объект,
+    который менеджер выдаёт:
+
+        with run_span("run 42", session_id="42", inputs={"вопрос": text}) as out:
+            ...
+            out.update({"ответ": result, "статус": "ok"})
+
+    Выход ставится и при ошибке (`finally`): оборванный запуск в списке обязан быть
+    отличим от успешного.
+
+    Трейсинг выключен — отдаётся пустой словарь, вызывающий код не меняется.
     """
+    out: dict = {}
     if not _enabled:
-        yield
+        yield out
         return
     try:
         import mlflow
+        from mlflow.entities import SpanType
     except Exception:  # noqa: BLE001
         logger.exception("mlflow недоступен — запуск пойдёт без трейса")
-        yield
+        yield out
         return
     try:
-        with mlflow.start_span(name=name) as span:
+        # CHAIN, а не UNKNOWN: по типу MLflow рисует иконку и группирует спаны в UI
+        with mlflow.start_span(name=name, span_type=SpanType.CHAIN) as span:
             try:
                 if session_id:
                     mlflow.update_current_trace(
@@ -166,12 +182,20 @@ def run_span(name: str, session_id: str = "", steps: int = 0):
                     span.set_attribute("session_id", session_id)
                 if steps:
                     span.set_attribute("steps_total", steps)
+                if inputs:
+                    span.set_inputs(inputs)
             except Exception:
                 logger.exception("не удалось проставить теги трейса запуска")
-            yield
+            try:
+                yield out
+            finally:
+                try:
+                    span.set_outputs(out)
+                except Exception:
+                    logger.exception("не удалось записать выход трейса запуска")
     except Exception:
         logger.exception("сбой трейсинга запуска %s — работа продолжается", name)
-        yield
+        yield out
 
 
 @contextlib.contextmanager
