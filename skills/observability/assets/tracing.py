@@ -179,6 +179,15 @@ def run_span(name: str, session_id: str = "", steps: int = 0, inputs: dict | Non
                 if session_id:
                     mlflow.update_current_trace(
                         metadata={"mlflow.trace.session": session_id})
+                    # `session.id` — не дубль метки выше, а обязательная страховка.
+                    # При сохранении трейса MLflow выводит сессию из атрибутов спанов:
+                    # `session.id`, а если его нет — `gen_ai.conversation.id`. Второй
+                    # ставит сам pydantic-ai, свой UUID на каждый запуск агента, и он
+                    # ПЕРЕБИВАЕТ метку из update_current_trace: в UI сессия запуска
+                    # превращается в «019fcce6-…», по которой запуск не найти.
+                    # `session.id` проверяется первым — выигрывает наш идентификатор.
+                    # (mlflow 3.15.1, store/tracking/sqlalchemy_store.py)
+                    span.set_attribute("session.id", session_id)
                     span.set_attribute("session_id", session_id)
                 if steps:
                     span.set_attribute("steps_total", steps)
