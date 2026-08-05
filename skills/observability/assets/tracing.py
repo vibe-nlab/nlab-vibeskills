@@ -257,7 +257,7 @@ def run_span(name: str, session_id: str = "", steps: int = 0, inputs: dict | Non
 
 
 @contextlib.contextmanager
-def step_span(name: str, session_id: str = ""):
+def step_span(name: str, session_id: str = "", inputs: dict | None = None):
     """Спан одного шага — стадии конвейера, обработки запроса, того, что в проекте
     является единицей работы. Вкладывается в `run_span()`, если тот открыт.
 
@@ -266,12 +266,26 @@ def step_span(name: str, session_id: str = ""):
     `run_span()`. Если шаг выполняется вне запуска (разовый вызов, фоновая
     доработка постфактум), спан станет корнем своего трейса — это допустимо.
 
-    Трейсинг выключен или сломался — контекст пустой, вызывающий код об этом
-    не знает. Исключение самого шага всегда доходит до вызывающего как есть:
+    **Системный промпт, вход и ответ кладите СЮДА, в `inputs`/`outputs` этого спана.**
+    Соблазн передать промпт через `Agent(system_prompt=…)` — чтобы он лёг в сообщения и
+    отрисовался в чат-виде — заканчивается плохо: главный трейс многошагового запуска
+    перестаёт экспортироваться вовсе, в MLflow доезжают только отдельные фоновые трейсы
+    (проверено на 16-шаговом конвейере, mlflow 3.15.1 + pydantic-ai 2.23). Через
+    `inputs` спана те же 32 КБ промпта уезжают нормально — дело не в объёме, а в
+    сериализации сообщений агента.
+
+        with step_span("шаг-1", session_id=run_id,
+                       inputs={"системный промпт": system, "вход": user}) as out:
+            result = await agent.run(user)
+            out.update({"ответ модели": result.output, "токены": usage})
+
+    Трейсинг выключен или сломался — отдаётся пустой словарь, вызывающий код не
+    меняется. Исключение самого шага всегда доходит до вызывающего как есть:
     ошибку шага пробрасываем, ошибку трейсинга — в лог (см. `_quiet_span`).
     """
+    out: dict = {}
     if not _enabled:
-        yield
+        yield out
         return
     try:
         import mlflow
@@ -279,17 +293,35 @@ def step_span(name: str, session_id: str = ""):
         cm = mlflow.start_span(name=name or "step")
     except Exception:  # noqa: BLE001 — mlflow не поставлен: не повод ронять работу
         logger.exception("mlflow недоступен — шаг пойдёт без трейса")
-        yield
+        yield out
         return
     with _quiet_span(cm, name) as span:
-        if span is not None and session_id:
+        if span is not None:
             try:
-                mlflow.update_current_trace(
-                    metadata={"mlflow.trace.session": session_id})
-                span.set_attribute("session_id", session_id)
+                if inputs:
+                    span.set_inputs(inputs)
+                if session_id:
+                    mlflow.update_current_trace(
+                        metadata={"mlflow.trace.session": session_id})
+                    # `session.id` — тот же приоритет, что в `run_span()`: без него
+                    # сессию перетирает `gen_ai.conversation.id` от pydantic-ai.
+                    # Нужен и здесь: шаг вне запуска (фоновая задача) становится
+                    # корнем собственного трейса.
+                    span.set_attribute("session.id", session_id)
+                    span.set_attribute("session_id", session_id)
             except Exception:
-                logger.exception("не удалось проставить теги трейса")
-        yield
+                logger.exception("не удалось проставить теги трейса шага")
+        try:
+            yield out
+        finally:
+            # Выход ставится и на упавшем шаге. Спан к этому моменту ещё открыт —
+            # закрывает его `_quiet_span` после того, как исключение пройдёт
+            # через этот finally.
+            if span is not None and out:
+                try:
+                    span.set_outputs(out)
+                except Exception:
+                    logger.exception("не удалось записать выход спана шага")
 
 
 def tag_current_trace(
