@@ -3,13 +3,13 @@ name: prototype
 title: "Prototype: интерфейс-макет как способ снять требования"
 description: Второй шаг Golden Path NeuroLab, между быстрым Discovery и проектированием. Собирает кликабельный HTML-макет интерфейса будущего агента или сервиса, крутит его вместе с пользователем итерациями и превращает результат в техзадание — измеримые критерии приёмки в intent.md и подзадачи feature-list.json, привязанные к элементам макета. Работает вместо абстрактных вопросов про критерии - человек видит экран и говорит, что не так. Вызывается командой /nlab:prototype. Использовать после /nlab:project-start, а также когда пользователь просит показать, как это будет выглядеть, сделать макет, прототип, мокап или говорит, что не понимает по описанию.
 owner: alexgl-dev
-version: 1.2.1
+version: 1.3.0
 status: in-use
 scope: проекты NeuroLab с любым пользовательским интерфейсом — веб-приложения, диалоговые агенты, внутренние инструменты
 stage: discovery
 depends_on: [project-start]
 autonomy_level: R4
-last_reviewed: 2026-08-04
+last_reviewed: 2026-08-05
 registry_url: https://github.com/vibe-nlab/nlab-vibeskills
 update_check: per_session
 ---
@@ -85,7 +85,7 @@ SKILL_DIR = ${CLAUDE_PLUGIN_ROOT}/skills/prototype
 ### Макет рисуется дизайн-языком NeuroLab, а не своей палитрой
 
 Тем же, который потом применит `/nlab:design-ui` на боевом фронте:
-**Montserrat**, `html { font-size: 112.5% }`, тёмная тема на графите
+**Montserrat**, `html { font-size: 100% }` (базовые 16px), тёмная тема на графите
 `#272726`, те же имена токенов, что у shadcn (`--background`, `--card`,
 `--border`, `--primary`…). В шаблоне это уже заложено — своё не выдумывать.
 
@@ -152,7 +152,7 @@ import pathlib, re
 raw = pathlib.Path("project-docs/MOCK.html").read_text()
 t = re.sub(r"<!--.*?-->", "", raw, flags=re.S)   # HTML-комментарии
 t = re.sub(r"/\*.*?\*/", "", t, flags=re.S)      # CSS/JS-комментарии — тоже:
-# иначе пояснение «Montserrat, root 112.5%» внутри <style> сойдёт за реальные
+# иначе пояснение «Montserrat, root 100%» внутри <style> сойдёт за реальные
 # стили, и проверка подтвердит дизайн-язык, которого в разметке уже нет
 bad = []
 bad += [f"внешняя ссылка: {m}" for m in re.findall(r'(?:src|href)=["\']https?://[^"\']+', t)]
@@ -164,8 +164,10 @@ if "это макет" not in t.lower():
 for token in ("--background", "--foreground", "--card", "--border", "--primary"):
     if token not in t:
         bad.append(f"нет токена {token} — макет рисуется не дизайн-языком NeuroLab")
-if "112.5%" not in t:
-    bad.append("нет root font-size: 112.5% — размер разойдётся с боевым UI")
+if not re.search(r"html\s*\{[^}]*font-size\s*:\s*100%", t):
+    bad.append("нет root font-size: 100% — базовый размер должен быть 16px, как в боевом UI")
+if "112.5%" in t:
+    bad.append("root font-size 112.5% — правило укрупнения отменено, базовый размер 16px")
 if "Montserrat" not in t:
     bad.append("нет Montserrat в стеке шрифтов")
 print("\n".join(bad) if bad else "OK: макет самодостаточен и помечен")
