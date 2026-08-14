@@ -14,6 +14,10 @@
   пуст» вызов `mlflow.tracing.disable()`).
 - Обсервабилити никогда не роняет приложение: функции глотают свои
   исключения и пишут их в лог. Это правило enforcement — не вырезать.
+- Контракт мониторинга v1: трейс несёт `nlab.schema` / `nlab.mode` /
+  `nlab.service`, шаг — спан типа AGENT с `nlab.step.id` / `nlab.step.title` /
+  `nlab.step.after`. По ним внешний вьюер разбирает трейс ЛЮБОГО проекта
+  лаборатории, не зная его устройства. Проверяется `check_contract.py`.
 
 Актуальный API сверять по докам, не по памяти:
 https://mlflow.org/docs/latest/genai/tracing/integrations/listing/pydantic_ai/
@@ -28,6 +32,24 @@ logger = logging.getLogger(__name__)
 
 _enabled = False
 
+# --- контракт мониторинга ----------------------------------------------------
+# Версия контракта. Вьюер по ней понимает, какие ключи ждать; растёт, когда
+# ломается смысл существующих полей, а не когда добавляется новое.
+NLAB_SCHEMA = "1"
+# Режим включения трейсинга и имя сервиса — их знает `setup_tracing()`, а нужны
+# они на трейсе: по режиму вьюер понимает диалект вложенных спанов (флейвор
+# mlflow.pydantic_ai зовёт их `Agent.run` / `AnthropicModel.request`, мост OTel —
+# `invoke_agent <имя>` / `chat <модель>`).
+_mode = ""
+_service = ""
+
+# Потолок на длину одного строкового значения во входе/выходе спана. Нужен не
+# ради экономии: во флейворе `ToolManager.execute_tool_call` кладёт во вход
+# Python-repr внутренних объектов pydantic-ai — 250+ КБ на спан, 69% веса трейса
+# (замерено на реальном трейсе). Свои спаны такого делать не должны; что усечено,
+# помечается атрибутом `nlab.truncated`, чтобы вьюер не выдавал обрезок за целое.
+MAX_VALUE_CHARS = int(os.getenv("NLAB_TRACE_MAX_VALUE_CHARS", "100000"))
+
 
 def enabled() -> bool:
     """Включён ли трейсинг. Пока `setup_tracing()` не сказала «да», mlflow даже
@@ -41,7 +63,8 @@ def setup_tracing(service_name: str) -> bool:
     Возвращает True, если трейсинг включён, False — если выключен или не
     удалось включить.
     """
-    global _enabled
+    global _enabled, _mode, _service
+    _service = service_name
     uri = os.getenv("MLFLOW_TRACKING_URI", "").strip()
     if not uri:
         logger.info("MLFLOW_TRACKING_URI пуст — трейсинг выключен")
@@ -70,6 +93,7 @@ def setup_tracing(service_name: str) -> bool:
         _enabled = False
         return False
     _enabled = True
+    _mode = mode
     logger.info("MLflow-трейсинг включён: %s (experiment %s, режим %s)", uri,
                 os.getenv("MLFLOW_EXPERIMENT", service_name), mode)
     return True
@@ -137,6 +161,61 @@ def _enable_autolog(mlflow) -> str:
                        "будут, агентского уровня — нет", e)
         mlflow.openai.autolog()
         return "openai"
+
+
+def _mark_trace(mlflow, span) -> None:
+    """Ставит на трейс метки контракта: версия схемы, режим включения, сервис.
+
+    Ставятся ДВАЖДЫ и намеренно: тегами трейса (по ним вьюер фильтрует список,
+    не выкачивая спаны) и атрибутами спана. Атрибут нужен для реалтайма: спан
+    уезжает на сервер сразу по закрытии, а теги трейса доезжают со своим темпом,
+    и до конца запуска вьюер знал бы диалект спанов только из спана.
+    """
+    marks = {"nlab.schema": NLAB_SCHEMA}
+    if _mode:
+        marks["nlab.mode"] = _mode
+    if _service:
+        marks["nlab.service"] = _service
+    try:
+        mlflow.update_current_trace(tags=marks)
+    except Exception:
+        logger.exception("не удалось проставить теги контракта на трейс")
+    if span is None:
+        return
+    for key, value in marks.items():
+        try:
+            span.set_attribute(key, value)
+        except Exception:
+            logger.exception("не удалось проставить атрибут %s", key)
+
+
+def _clip(value, clipped: list):
+    """Рекурсивно усекает длинные строки, отмечая факт усечения в `clipped`."""
+    if isinstance(value, str):
+        if len(value) <= MAX_VALUE_CHARS:
+            return value
+        clipped.append(len(value))
+        return value[:MAX_VALUE_CHARS] + f"… [усечено, было {len(value)} симв.]"
+    if isinstance(value, dict):
+        return {k: _clip(v, clipped) for k, v in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_clip(v, clipped) for v in value]
+    return value
+
+
+def _set_payload(span, data: dict, setter: str) -> None:
+    """Кладёт вход/выход в спан, усекая гигантские значения.
+
+    Что усечено — помечается `nlab.truncated`: вьюер обязан знать, что показывает
+    обрезок, а не целое. Порог задаётся `NLAB_TRACE_MAX_VALUE_CHARS`.
+    """
+    clipped: list = []
+    payload = _clip(data, clipped)
+    getattr(span, setter)(payload)
+    if clipped:
+        span.set_attribute("nlab.truncated", True)
+        logger.info("усечено значений в спане: %s (максимум %s симв.)",
+                    len(clipped), MAX_VALUE_CHARS)
 
 
 @contextlib.contextmanager
@@ -238,6 +317,7 @@ def run_span(name: str, session_id: str = "", steps: int = 0, inputs: dict | Non
         return
     with _quiet_span(cm, name) as span:
         if span is not None:
+            _mark_trace(mlflow, span)
             try:
                 if session_id:
                     mlflow.update_current_trace(
@@ -255,7 +335,7 @@ def run_span(name: str, session_id: str = "", steps: int = 0, inputs: dict | Non
                 if steps:
                     span.set_attribute("steps_total", steps)
                 if inputs:
-                    span.set_inputs(inputs)
+                    _set_payload(span, inputs, "set_inputs")
             except Exception:
                 logger.exception("не удалось проставить теги трейса запуска")
         try:
@@ -266,13 +346,14 @@ def run_span(name: str, session_id: str = "", steps: int = 0, inputs: dict | Non
             # `_quiet_span` после того, как исключение пройдёт через этот finally.
             if span is not None:
                 try:
-                    span.set_outputs(out)
+                    _set_payload(span, out, "set_outputs")
                 except Exception:
                     logger.exception("не удалось записать выход трейса запуска")
 
 
 @contextlib.contextmanager
-def step_span(name: str, session_id: str = "", inputs: dict | None = None):
+def step_span(name: str, session_id: str = "", inputs: dict | None = None, *,
+              step_id: str = "", title: str = "", after: list[str] | str = ()):
     """Спан одного шага — стадии конвейера, обработки запроса, того, что в проекте
     является единицей работы. Вкладывается в `run_span()`, если тот открыт.
 
@@ -280,6 +361,28 @@ def step_span(name: str, session_id: str = "", inputs: dict | None = None):
     принадлежит. Этот спан даёт вызову имя; структуру вокруг него задаёт
     `run_span()`. Если шаг выполняется вне запуска (разовый вызов, фоновая
     доработка постфактум), спан станет корнем своего трейса — это допустимо.
+
+    **Тип спана — AGENT, и это часть контракта.** Вьюер ищет шаги ПО ТИПУ, а не по
+    именам спанов: имена шагов у каждого проекта свои, а имена спанов библиотек
+    вообще меняются от режима включения (флейвор зовёт их `Agent.run`, мост OTel —
+    `invoke_agent <имя>`). Оставить тип `UNKNOWN` — значит отдать трейс, в котором
+    шагов не найти.
+
+    **Три опциональных поля контракта** (все — keyword, старые вызовы не ломаются):
+
+    - `step_id` — стабильный ключ шага. Имя спана человек меняет свободно, id — нет;
+      на него ссылаются связи. По умолчанию берётся имя спана.
+    - `title` — человеческая подпись «что делает шаг» («ищет по базе знаний»).
+      Из имени спана она не выводится, а без неё вьюер рисует карточки без подписи.
+    - `after` — id шагов, чьи РЕЗУЛЬТАТЫ пошли на вход этому. Единственный источник
+      честных связей: MLflow хранит вложенность (`parent_span_id`), но не поток
+      данных между соседями, и без `after` вьюер вынужден догадываться по времени —
+      соединять всё, что шло рядом.
+
+          with step_span("30_synthesize", step_id="30_synthesize",
+                         title="сводит выводы в ответ",
+                         after=["20a_docs", "20b_metrics"]) as out:
+              ...
 
     **Системный промпт, вход и ответ кладите СЮДА, в `inputs`/`outputs` этого спана.**
     Соблазн передать промпт через `Agent(system_prompt=…)` — чтобы он лёг в сообщения и
@@ -309,17 +412,28 @@ def step_span(name: str, session_id: str = "", inputs: dict | None = None):
         return
     try:
         import mlflow
+        from mlflow.entities import SpanType
 
-        cm = mlflow.start_span(name=name or "step")
+        # AGENT, а не UNKNOWN: по типу шаг находят и в UI MLflow, и во внешнем
+        # вьюере. Тип задаётся при СОЗДАНИИ спана — задним числом не чинится.
+        cm = mlflow.start_span(name=name or "step", span_type=SpanType.AGENT)
     except Exception:  # noqa: BLE001 — mlflow не поставлен: не повод ронять работу
         logger.exception("mlflow недоступен — шаг пойдёт без трейса")
         yield out
         return
     with _quiet_span(cm, name) as span:
         if span is not None:
+            _mark_trace(mlflow, span)
             try:
+                span.set_attribute("nlab.step.id", step_id or name or "step")
+                if title:
+                    span.set_attribute("nlab.step.title", title)
+                if after:
+                    span.set_attribute(
+                        "nlab.step.after",
+                        [after] if isinstance(after, str) else list(after))
                 if inputs:
-                    span.set_inputs(inputs)
+                    _set_payload(span, inputs, "set_inputs")
                 if session_id:
                     mlflow.update_current_trace(
                         metadata={"mlflow.trace.session": session_id})
@@ -339,7 +453,7 @@ def step_span(name: str, session_id: str = "", inputs: dict | None = None):
             # через этот finally.
             if span is not None and out:
                 try:
-                    span.set_outputs(out)
+                    _set_payload(span, out, "set_outputs")
                 except Exception:
                     logger.exception("не удалось записать выход спана шага")
 
