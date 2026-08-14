@@ -209,9 +209,12 @@ def run_span(name: str, session_id: str = "", steps: int = 0, inputs: dict | Non
     больше, ни что подавали на вход, ни чем кончилось. Выход отдаётся через объект,
     который менеджер выдаёт:
 
-        with run_span("run 42", session_id="42", inputs={"вопрос": text}) as out:
+        with run_span("run 42", session_id="42", inputs={"question": text}) as out:
             ...
-            out.update({"ответ": result, "статус": "ok"})
+            out.update({"answer": result, "status": "ok"})
+
+    Ключи словарей — латиницей, snake_case (`question`, `answer`, `status`,
+    `system_prompt`, `tokens`). Значения — на языке проекта, какие есть.
 
     Выход ставится и при ошибке (`finally`): оборванный запуск в списке обязан быть
     отличим от успешного.
@@ -286,10 +289,15 @@ def step_span(name: str, session_id: str = "", inputs: dict | None = None):
     `inputs` спана те же 32 КБ промпта уезжают нормально — дело не в объёме, а в
     сериализации сообщений агента.
 
-        with step_span("шаг-1", session_id=run_id,
-                       inputs={"системный промпт": system, "вход": user}) as out:
+        with step_span("10_extract", session_id=run_id,
+                       inputs={"system_prompt": system, "input": user}) as out:
             result = await agent.run(user)
-            out.update({"ответ модели": result.output, "токены": usage})
+            out.update({"output": result.output, "tokens": usage})
+
+    Ключи — латиницей, snake_case: это имена полей, по которым ищут и сравнивают
+    шаги в UI, и они должны быть одинаковыми во всех шагах проекта. Русский ключ
+    («системный промпт») в поиске неудобен и у каждого шага получается свой.
+    Значения — на языке проекта, какие есть.
 
     Трейсинг выключен или сломался — отдаётся пустой словарь, вызывающий код не
     меняется. Исключение самого шага всегда доходит до вызывающего как есть:
