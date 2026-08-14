@@ -3,7 +3,7 @@ name: observability
 title: "Observability: трейсинг агентов в общий MLflow"
 description: "Подключение проекта к обсервабилити NeuroLab — трейсинг pydantic-ai-агентов в общий MLflow Tracking Server. Флейвор mlflow.pydantic_ai работает только с pydantic-ai 1.x; на 2.x скилл переключается на нативную OTel-инструментацию через мост MLflow. В трейсы попадают промпты, сообщения пользователя, вызовы LLM/инструментов/MCP, structured output и токены. Адрес сервера — только через MLFLOW_TRACKING_URI в env; пустая переменная = трейсинг выключен, приложение работает как обычно. Вызывается командой /nlab:observability. Использовать, когда просят подключить логирование/трейсинг/мониторинг агента, «посмотреть, какие промпты уходят», или при реализации бэкенда с агентами после /nlab:code-design."
 owner: alexgl-dev
-version: 0.6.0
+version: 0.6.1
 status: in-use
 scope: любой проект с агентами на pydantic-ai (бэкенд по конвенциям NeuroLab)
 stage: prep
