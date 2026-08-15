@@ -48,7 +48,14 @@ _service = ""
 # Python-repr внутренних объектов pydantic-ai — 250+ КБ на спан, 69% веса трейса
 # (замерено на реальном трейсе). Свои спаны такого делать не должны; что усечено,
 # помечается атрибутом `nlab.truncated`, чтобы вьюер не выдавал обрезок за целое.
-MAX_VALUE_CHARS = int(os.getenv("NLAB_TRACE_MAX_VALUE_CHARS", "100000"))
+# Кривое значение переменной не роняет импорт (правило «обсервабилити никогда не
+# роняет приложение» действует и на уровне модуля): берётся значение по умолчанию.
+try:
+    MAX_VALUE_CHARS = int(os.getenv("NLAB_TRACE_MAX_VALUE_CHARS", "") or 100_000)
+except ValueError:
+    logger.warning("NLAB_TRACE_MAX_VALUE_CHARS=%r — не число, беру 100000",
+                   os.getenv("NLAB_TRACE_MAX_VALUE_CHARS"))
+    MAX_VALUE_CHARS = 100_000
 
 
 def enabled() -> bool:
