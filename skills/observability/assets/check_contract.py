@@ -155,7 +155,29 @@ def check(trace) -> Report:
                       "по чему был запуск и чем кончился — не видно")
 
     # --- шаги
-    steps = [s for s in spans if span_type(s) == "AGENT"]
+    # Шаг — это спан, ПОМЕЧЕННЫЙ контрактом. Брать все спаны типа AGENT нельзя:
+    # библиотечные спаны pydantic-ai (`Agent.run`) тоже AGENT, и каждый шаг
+    # задваивается своей внутренностью. На реальном трейсе проекта, выполнившего
+    # контракт полностью, гейт из-за этого показывал «8 шагов, nlab.step.id 4 из 8»
+    # и ложно заваливал сдачу.
+    # Контракта нет вовсе — откат на AGENT-спаны без агентского предка: внешний
+    # спан и есть шаг, вложенный — его потроха.
+    marked = [s for s in spans if "nlab.step.id" in attrs(s)]
+    if marked:
+        steps = marked
+    else:
+        parent_of = {s["span_id"]: s.get("parent_span_id") for s in spans}
+        agent_ids = {s["span_id"] for s in spans if span_type(s) == "AGENT"}
+
+        def under_agent(span: dict) -> bool:
+            cur = parent_of.get(span["span_id"])
+            while cur:
+                if cur in agent_ids:
+                    return True
+                cur = parent_of.get(cur)
+            return False
+
+        steps = [s for s in spans if s["span_id"] in agent_ids and not under_agent(s)]
     named = [s for s in spans if s is not root and span_type(s) not in ("AGENT", "LLM",
                                                                        "TOOL", "CHAT_MODEL")]
     rep.must(bool(steps),
@@ -172,6 +194,72 @@ def check(trace) -> Report:
                  f"nlab.step.id: {len(with_id)} из {len(steps)} шагов"
                  + ("" if len(with_id) == len(steps) else
                     " → шаг не с чем связать: имя спана поменяется, и ссылки протухнут"))
+
+        # Промпт и вход шага — во входе спана шага, под каноничными ключами.
+        # Вьюер ищет их именно там: у проектов, которые кладут инструкции в текст
+        # пользовательского сообщения, отдельного системного промпта в трейсе нет
+        # вовсе, и карточка «системный промпт» остаётся пустой.
+        SYS_KEYS = ("system_prompt", "instructions", "system")
+        IN_KEYS = ("input", "prompt")
+
+        kids: dict[str, list] = {}
+        for sp in spans:
+            kids.setdefault(sp.get("parent_span_id"), []).append(sp)
+
+        def inner_llms(step: dict) -> list:
+            out, stack = [], list(kids.get(step["span_id"], []))
+            while stack:
+                cur = stack.pop()
+                if span_type(cur) in ("LLM", "CHAT_MODEL"):
+                    out.append(cur)
+                stack += kids.get(cur["span_id"], [])
+            return out
+
+        def step_inputs(span: dict) -> dict:
+            raw = attrs(span).get("mlflow.spanInputs")
+            if isinstance(raw, str):
+                try:
+                    raw = json.loads(raw)
+                except json.JSONDecodeError:
+                    return {}
+            return raw if isinstance(raw, dict) else {}
+
+        # Промпт должен НАХОДИТЬСЯ — в одном из двух мест, и оба законны:
+        # либо во входе спана шага (`system_prompt`), либо в `instructions`
+        # сообщений LLM (проект передал его через `Agent(instructions=…)`).
+        # Плохо, когда его нет ни там ни там: значит инструкции зашиты в текст
+        # пользовательского сообщения, и отдельно показать их невозможно.
+        def prompt_found(step: dict) -> bool:
+            if any(step_inputs(step).get(k) for k in SYS_KEYS):
+                return True
+            for llm in inner_llms(step):
+                raw = attrs(llm).get("mlflow.spanInputs")
+                if isinstance(raw, str):
+                    try:
+                        raw = json.loads(raw)
+                    except json.JSONDecodeError:
+                        continue
+                for msg in (raw or {}).get("messages", []):
+                    if msg.get("instructions"):
+                        return True
+                    for part in msg.get("parts", []):
+                        if part.get("part_kind") == "system-prompt":
+                            return True
+            return False
+
+        with_sys = [s for s in steps if prompt_found(s)]
+        rep.should(len(with_sys) == len(steps),
+                   f"системный промпт шага находится (вход спана `system_prompt` "
+                   f"или `instructions` сообщений): {len(with_sys)} из {len(steps)} шагов"
+                   + ("" if len(with_sys) == len(steps) else
+                      " → вьюер покажет карточку «системный промпт» пустой: инструкции "
+                      "зашиты в текст пользовательского сообщения и отдельно не видны"))
+
+        with_in = [s for s in steps if any(step_inputs(s).get(k) for k in IN_KEYS)]
+        rep.should(len(with_in) == len(steps),
+                   f"вход шага ({'/'.join(IN_KEYS)}): {len(with_in)} из {len(steps)} шагов"
+                   + ("" if len(with_in) == len(steps) else
+                      " → не видно, что шагу подали; вьюер покажет весь вход как есть"))
 
         with_title = [s for s in steps if attrs(s).get("nlab.step.title")]
         rep.should(len(with_title) == len(steps),
