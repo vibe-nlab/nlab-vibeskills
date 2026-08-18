@@ -20,7 +20,7 @@
 | `span_type=AGENT`         | спан шага  | по типу вьюер находит шаги                  |
 | `nlab.step.id`            | спан шага  | стабильный ключ: имя шага меняется, id — нет|
 | `nlab.step.title`         | спан шага  | подпись «что делает шаг»                    |
-| `nlab.step.after`         | спан шага  | честные связи вместо догадки по времени     |
+| `nlab.step.after`         | спан шага  | единственный источник стрелок; нет — стрелок нет |
 | `nlab.schema`             | трейс      | версия контракта                            |
 | `nlab.mode`               | трейс      | диалект вложенных спанов библиотеки         |
 | `nlab.service`            | трейс      | имя сервиса                                 |
@@ -185,8 +185,9 @@ def check(trace) -> Report:
         rep.should(len(with_after) >= len(steps) - 1,
                    f"nlab.step.after: {len(with_after)} из {len(steps)} шагов"
                    + ("" if len(with_after) >= len(steps) - 1 else
-                      f" (не проставлен у {len(steps) - len(with_after)}) → связи между "
-                      "шагами будут догадкой по времени, а не фактом"))
+                      f" (не проставлен у {len(steps) - len(with_after)}) → вьюер обязан "
+                      "нарисовать эти шаги БЕЗ стрелок: догадка по времени или по номерам "
+                      "в имени даёт не приближение, а другой граф"))
 
     session = (info.get("trace_metadata") or {}).get("mlflow.trace.session", "")
     rep.should(bool(session),
