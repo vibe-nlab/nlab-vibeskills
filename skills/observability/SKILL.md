@@ -1,15 +1,15 @@
 ---
 name: observability
 title: "Observability: трейсинг агентов в общий MLflow"
-description: "Подключение проекта к обсервабилити NeuroLab — трейсинг pydantic-ai-агентов в общий MLflow Tracking Server. Флейвор mlflow.pydantic_ai работает только с pydantic-ai 1.x; на 2.x скилл переключается на нативную OTel-инструментацию через мост MLflow. В трейсы попадают промпты, сообщения пользователя, вызовы LLM/инструментов/MCP, structured output и токены. Адрес сервера — только через MLFLOW_TRACKING_URI в env; пустая переменная = трейсинг выключен, приложение работает как обычно. Вызывается командой /nlab:observability. Использовать, когда просят подключить логирование/трейсинг/мониторинг агента, «посмотреть, какие промпты уходят», или при реализации бэкенда с агентами после /nlab:code-design."
+description: "Подключение проекта к обсервабилити NeuroLab — трейсинг pydantic-ai-агентов в общий MLflow Tracking Server. Флейвор mlflow.pydantic_ai работает только с pydantic-ai 1.x; на 2.x скилл переключается на нативную OTel-инструментацию — через мост MLflow, а если пакет mlflow в сервис не встаёт, то экспортом OTLP прямо в MLflow. В трейсы попадают промпты, сообщения пользователя, вызовы LLM/инструментов/MCP, structured output и токены. Адрес сервера — только через MLFLOW_TRACKING_URI в env; пустая переменная = трейсинг выключен, приложение работает как обычно. Вызывается командой /nlab:observability. Использовать, когда просят подключить логирование/трейсинг/мониторинг агента, «посмотреть, какие промпты уходят», или при реализации бэкенда с агентами после /nlab:code-design."
 owner: alexgl-dev
-version: 0.8.0
+version: 0.9.0
 status: in-use
 scope: любой проект с агентами на pydantic-ai (бэкенд по конвенциям NeuroLab)
 stage: prep
 depends_on: []
 autonomy_level: R3
-last_reviewed: 2026-08-18
+last_reviewed: 2026-09-03
 registry_url: https://github.com/vibe-nlab/nlab-vibeskills
 update_check: per_session
 ---
@@ -50,8 +50,8 @@ update_check: per_session
 | Артефакт | Обязателен? | Формат | Кто читает дальше |
 |---|---|---|---|
 | `backend/infrastructure/tracing.py` | да | модуль по шаблону [assets/tracing.py](assets/tracing.py); `setup_tracing()` вызывается при старте приложения | приложение |
-| `mlflow` в зависимостях бэкенда | да | `mlflow>=3` в requirements/pyproject (актуальную версию сверить по докам) | сборка |
-| `MLFLOW_TRACKING_URI` (+ опц. `MLFLOW_EXPERIMENT`) в `.env` и `.env.dokploy.example` | да | пустое значение допустимо и означает «выключено»; комментарий — у кого спросить адрес | `/nlab:dokploy-prep`, хостящий |
+| Зависимости трейсинга в бэкенде | да | путь «мост»: `mlflow>=3`; путь «OTLP»: `opentelemetry-sdk` + `opentelemetry-exporter-otlp-proto-http` (без `mlflow`) — см. §4 | сборка |
+| Адрес сервера в `.env` и `.env.dokploy.example` | да | путь «мост»: `MLFLOW_TRACKING_URI` (+ опц. `MLFLOW_EXPERIMENT`); путь «OTLP»: `OTEL_EXPORTER_OTLP_TRACES_ENDPOINT` + `OTEL_EXPORTER_OTLP_TRACES_HEADERS`. Пустое значение допустимо и означает «выключено»; комментарий — у кого спросить адрес | `/nlab:dokploy-prep`, хостящий |
 | Теги session/user на трейсах | да, если у сервиса есть пользователи/сессии | `tag_current_trace()` в обработчиках запросов | тот, кто смотрит трейсы |
 | Трейс, выполняющий контракт мониторинга v1 | да | типы спанов + атрибуты `nlab.*` (§4, «Контракт мониторинга»); проверяется [assets/check_contract.py](assets/check_contract.py) | внешний вьюер трейсов (плагин над MLflow) |
 | Запись в `EVIDENCE.md` | да | чем проверено (п.8), append-only | этапы Prep/Deploy |
@@ -80,6 +80,71 @@ update_check: per_session
   типа AGENT с вложенным CHAT_MODEL и атрибутами `gen_ai.*` (модель, провайдер,
   токены, сообщения) по семантическим конвенциям OTel. Это **не** отклонение от
   дефолта компании — тот же MLflow, другой способ отдать ему спаны.
+- **Второй рабочий путь для 2.x — OTLP прямо в MLflow, без пакета `mlflow` в
+  приложении.** Мост из предыдущего пункта требует импортировать `mlflow` внутрь
+  сервиса, а это не всегда возможно: пакет тянет свои пины и конфликтует с
+  агентными библиотеками (у `pydantic-deep` конфликт с `mlflow` по pydantic-ai).
+  MLflow Server сам умеет принимать OTLP, поэтому приложению достаточно
+  `opentelemetry-sdk` + `opentelemetry-exporter-otlp-proto-http`, а адрес
+  задаётся штатными переменными OTel:
+
+  ```
+  OTEL_EXPORTER_OTLP_TRACES_ENDPOINT=http://<mlflow>/v1/traces
+  OTEL_EXPORTER_OTLP_TRACES_HEADERS=x-mlflow-experiment-id=<id эксперимента>
+  ```
+
+  Дальше — тот же `Agent.instrument_all(InstrumentationSettings(tracer_provider=
+  <свой TracerProvider с OTLPSpanExporter>))`. Ограничения сервера: ингест
+  появился в **MLflow 3.6.0**, поддержан только OTLP/**HTTP** (gRPC нет),
+  сжатие gzip/deflate — с 3.7.0. Эксперимент задаётся ЗАГОЛОВКОМ, а не
+  `MLFLOW_EXPERIMENT`: переменные MLflow здесь не работают вовсе, их некому
+  читать. Выбирай этот путь, когда `mlflow` в зависимости сервиса не встаёт;
+  мост — когда встаёт (он проще и даёт теги сессии из коробки).
+  Проверено на mlflow 3.15.1 + pydantic-ai 2.38.0, 2026-09-03.
+- **MLflow действительно ПЕРЕВОДИТ атрибуты `gen_ai.*` в свою модель, а не просто
+  хранит их.** Это то, ради чего OTLP-путь вообще годится: трейс выглядит как
+  родной, а не как мешок атрибутов. Проверенное соответствие:
+
+  | Пришло по OTLP | Стало в MLflow |
+  |---|---|
+  | `gen_ai.operation.name=chat` | `mlflow.spanType = CHAT_MODEL` |
+  | `gen_ai.operation.name=execute_tool` | `mlflow.spanType = TOOL` |
+  | `gen_ai.operation.name=invoke_agent` | `mlflow.spanType = AGENT` |
+  | `gen_ai.input.messages` / `gen_ai.output.messages` | `mlflow.spanInputs` / `mlflow.spanOutputs` |
+  | `gen_ai.usage.*` | `mlflow.chat.tokenUsage` и `mlflow.trace.tokenUsage` на трейсе |
+  | `gen_ai.request.model`, `gen_ai.system` | `mlflow.llm.model`, `mlflow.llm.provider` |
+
+- **⚠️ Не оборачивай модель в `InstrumentedModel` руками — получишь двойной счёт
+  токенов.** Соблазн понятен: `InstrumentedModel(model, settings)` не зависит от
+  сигнатуры `Agent` и не падает. Но если у агента есть возможность, которая сама
+  трогает путь вызова модели (у `pydantic-deep` это `stuck_loop_detection`,
+  включённый ПО УМОЛЧАНИЮ), на **один** реальный вызов приходит **два вложенных**
+  спана `chat` с одинаковым `gen_ai.usage.*`. Приёмник складывает их и показывает
+  вдвое большую стоимость плюс несуществующий вложенный вызов. Замерено явно:
+  реальных вызовов модели 1, спанов 2; после перехода на `Agent.instrument_all()`
+  — 1 спан, возможность выключать не пришлось. **Единственный правильный
+  выключатель — `Agent.instrument_all()`**, а не обёртка модели и не аргумент
+  конструктора. Проверено на pydantic-ai 2.38.0 + pydantic-deep 0.3.43, 2026-09-03.
+- **Аргумент `instrument=` бывает мёртвым и у сторонних обёрток над pydantic-ai.**
+  У `pydantic-deep` (`create_deep_agent(instrument=...)`) он документирован, но
+  прокидывается в `Agent(instrument=...)` — то есть в аргумент, которого в 2.x
+  уже нет, и падает `TypeError` на сборке агента. Это тот же класс поломки, что
+  и у флейвора MLflow, только в другой библиотеке: **не доверяй параметру
+  `instrument` у обёрток, проверяй пробным запуском**.
+- **Цепочка рассуждений (thinking) лежит внутри `gen_ai.output.messages`** частью
+  `{"type": "thinking", "content": ...}` — рядом с `text` и `tool_call`, отдельного
+  атрибута под неё нет. Версию семконвенций задаёт
+  `InstrumentationSettings(version=...)`: бери **5** (дефолт 2.38) — версии 2/3/4
+  помечены устаревшими и печатают `PydanticAIDeprecationWarning`, а у v2 ещё и
+  нечитаемые имена спанов (`agent run`, `running tool` вместо `invoke_agent <имя>`,
+  `execute_tool <имя>`). Докстринг библиотеки утверждает, что thinking появляется
+  с v3, — **это неверно**: на 2.38 он эмитится и на v2. Проверено 2026-09-03.
+- **Короткоживущий процесс теряет спаны без явного flush.** Если трейсится не
+  долгоживущий сервис, а CLI-шаг (скрипт, этап конвейера, cron-задача),
+  `BatchSpanProcessor` не успевает отправить накопленное и умирает вместе с
+  процессом — в MLflow пусто, ошибок нет. Вешай сброс дважды: `atexit.register`
+  на любой выход и явный `provider.force_flush(timeout_ms)` в конце единицы
+  работы. Таймаут ставь конечным, иначе упавшая сеть будет держать завершение.
 - **Спаны шагов и спаны агента должны попасть в ОДИН трейс.** Без
   `MLFLOW_TRACE_PROPAGATE_TO_OTEL_CONTEXT=True` инструментация pydantic-ai не
   видит родителя из `mlflow.start_span()` и уезжает отдельным трейсом: в UI два
@@ -323,7 +388,7 @@ update_check: per_session
 | `nlab.step.id` | спан шага | стабильный ключ шага: имя меняют свободно, id — нет |
 | `nlab.step.title` | спан шага | человеческая подпись «что делает шаг» |
 | `nlab.step.after` | спан шага | id шагов, чьи результаты пошли на вход → единственный источник стрелок; нет его — вьюер рисует шаги без стрелок (правило 4) |
-| `nlab.mode` | трейс | каким режимом включился трейсинг (`pydantic_ai` / `pydantic_ai_otel` / `openai`) |
+| `nlab.mode` | трейс | каким режимом включился трейсинг (`pydantic_ai` / `pydantic_ai_otel` / `pydantic_ai_otlp` / `openai`) |
 | `nlab.schema` | трейс | версия контракта (`1`) |
 | `nlab.service` | трейс | имя сервиса |
 | `span_type=CHAIN` + вход/выход корня, `session.id`, user | корень | уже описано выше, не ломать |
@@ -402,7 +467,9 @@ keyword и только опционально — старые вызовы н�
    у кого его запросить ([@sanchezgl](https://t.me/sanchezgl) /
    [@KirillBorovkov](https://t.me/KirillBorovkov)), и продолжай с пустой
    переменной.
-3. Добавь `mlflow` в зависимости бэкенда; сверь API по докам (п.4).
+3. Выбери путь подключения (§4) и добавь его зависимости: «мост» — `mlflow` в бэкенд;
+   «OTLP» — `opentelemetry-sdk` + `opentelemetry-exporter-otlp-proto-http`, если `mlflow`
+   в сервис не встаёт. Сверь API по докам (п.4).
 4. Скопируй [assets/tracing.py](assets/tracing.py) в
    `backend/infrastructure/tracing.py`, адаптируй имя сервиса; вызови
    `setup_tracing()` один раз при старте приложения (lifespan/main) —
@@ -422,9 +489,12 @@ keyword и только опционально — старые вызовы н�
    ставит сам.
 7. Привяжи session/user к трейсам (`tag_current_trace()`) там, где сервис
    их знает.
-8. Пропиши `MLFLOW_TRACKING_URI` (и при необходимости `MLFLOW_EXPERIMENT`)
-   в `.env` и `.env.dokploy.example` — с комментарием «пусто = трейсинг
-   выключен; адрес общего сервера — у @sanchezgl / @KirillBorovkov».
+8. Пропиши адрес сервера в `.env` и `.env.dokploy.example` — с комментарием
+   «пусто = трейсинг выключен; адрес общего сервера — у @sanchezgl /
+   @KirillBorovkov». Путь «мост»: `MLFLOW_TRACKING_URI` (+ при необходимости
+   `MLFLOW_EXPERIMENT`). Путь «OTLP»: `OTEL_EXPORTER_OTLP_TRACES_ENDPOINT` и
+   `OTEL_EXPORTER_OTLP_TRACES_HEADERS` с id эксперимента — переменные MLflow
+   на этом пути не читаются никем.
 9. Проверь работой, а не чтением кода (AGENTS.md §7a). Многошаговый агент прогоняй
    через [assets/fake_llm_router.py](assets/fake_llm_router.py) — полный путь, ноль
    токенов; живая модель нужна только для проверки качества ответов, не трейсинга:
