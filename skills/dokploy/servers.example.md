@@ -16,4 +16,7 @@
 - wildcard-domain: example.com              # базовый домен, A-запись *.example.com → IP сервера; "нет", если домена нет
 - github-provider-id: CHANGE_ME             # GET github.githubProviders → githubId; "не подключён", если пусто
 - creds-dir: ~/Dokploy-services             # локальная папка, куда сохранять креды задеплоенных проектов
+- проекты: infra / agents / tools / research  # какие проекты-кластеры уже есть (projectId, environmentId) — новые сервисы кладём в них
+- права аккаунта: owner                     # или перечислить, чего нельзя: удалять проекты, Traefik-файлы, SSH-ключи (если аккаунт не owner)
+- egress: без ограничений                   # какие внешние API с сервера НЕ доступны (например «OpenRouter 403 по IP, ждём VPN»)
 - notes: особенности сервера — объём RAM/swap, известные грабли, что на нём живёт
