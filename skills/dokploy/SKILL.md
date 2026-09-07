@@ -3,13 +3,13 @@ name: dokploy
 title: "Deploy: деплой и эксплуатация сервисов на Dokploy"
 description: Агент по деплою и эксплуатации сервисов на Dokploy-серверах пользователя. Деплой приложений из GitHub (проект → compose → env → домены → deploy → health-проверка), redeploy, логи, диагностика упавших сервисов, обновление env и доменов. При первом запуске подключает сервер (URL + API-ключ от пользователя) и заводит локальный реестр ~/.claude/nlab/dokploy-servers.md. Вызывается командой /nlab:dokploy.
 owner: alexgl-dev
-version: 1.0.1
+version: 1.1.0
 status: in-use
 scope: все проекты, которые хостятся на Dokploy-серверах пользователя (реестр серверов — локальный ~/.claude/nlab/dokploy-servers.md)
 stage: deploy
 depends_on: [dokploy-prep]
 autonomy_level: R2
-last_reviewed: 2026-08-04
+last_reviewed: 2026-09-06
 registry_url: https://github.com/vibe-nlab/nlab-vibeskills
 update_check: pre_deploy
 ---
@@ -71,6 +71,40 @@ env, домены) обязателен только `servers.md`.
 - Статус деплоя отслеживай поллингом `compose.one` → `composeStatus`
   (`running` → `done`/`error`), интервал 15 секунд.
 - Пиши по-русски; после любой операции — короткий итог таблицей.
+- **Проект Dokploy = кластер сервисов, а не один сервис.** На главном
+  сервере лаборатории (`nlab-prod-sbercloud`, `dokploy.a.nlabstudio.ru`)
+  проекты уже заведены: `infra` (хранилища, RAG-цепочка, wiki, память,
+  MCP-гейт), `agents`, `tools`, `research`. Новый сервис — это compose или
+  application **внутри** подходящего проекта; `project.create` только для
+  нового кластера. Имя сервиса = имя репозитория без префиксов, `appName`
+  задавай явно вида `<проект>-<репо>` (Dokploy допишет суффикс). Карта, кто
+  куда относится, — `Infrastructure/docs/dokploy-projects.md`.
+- **Без SSH тоже можно эксплуатировать**: лог сборки/деплоя —
+  `deployment.readLogs`, состояние контейнеров (running / restarting /
+  exited) — `docker.getContainers`, список маршрутов панели —
+  `settings.getOpenApiDocument` (см. references/api.md). Чего API не отдаёт —
+  stdout контейнера; падающий в рестарт-цикле контейнер воспроизводи
+  локально: образ собирается тем же Dockerfile, ошибка та же.
+- **Старый сервис на новом сервере = свежая сборка.** Незакреплённые
+  зависимости в Dockerfile подтянут новые мажорные версии (проверено:
+  `mcp>=1.2.0` без верхней границы получил 2.x и уронил контейнер). Перед
+  переносом проверь пины в Dockerfile/requirements, а не только compose.
+- **Проверь исходящий доступ сервера.** Провайдеры блокируют по IP:
+  с `nlab-prod-sbercloud` (SberCloud) OpenRouter отвечает 403 «Access denied
+  by security policy», хотя тот же ключ с других серверов работает. Если
+  сервис после деплоя падает на внешнем API — сначала `curl` с сервера
+  (или из ошибки самого сервиса), потом уже код. Ограничения фиксируй в
+  реестре (`egress:`), решение о VPN/прокси — за владельцем сервера.
+- **Перенос данных между серверами без SSH** — только снапшотом через
+  one-shot сидер в compose: снапшот кладётся в MinIO (анонимный префикс или
+  header-auth; presigned query-string через nginx MinIO ломается), сервис
+  `*-loader` с `restart: "no"` восстанавливает его при пустом томе, приложение
+  ждёт `service_completed_successfully`. Пример — `qdrant-loader` в
+  `sber-nlab/rag-v2/docker-compose.dokploy.yml`. Скопировать том напрямую
+  без SSH нельзя, а «временный контейнер» вне Dokploy запрещён (п.5).
+- **Сетевые вызовы — с ретраем.** API Dokploy и health-проверки повторяй
+  до пары минут (пауза 5 с), прежде чем объявлять сервер недоступным:
+  VPN/сеть оператора флапает чаще, чем падает сервер.
 
 ## 5. Enforcement — обязательные правила (нарушение = блокировка)
 
@@ -142,8 +176,13 @@ env, домены) обязателен только `servers.md`.
 4. **DNS**: `dig +short <каждый домен>` → IP выбранного сервера.
 5. **Секреты**: сгенерируй, собери блок env из `.env*.example`.
 6. **Создай в Dokploy** (порядок и payload'ы — в references/api.md):
-   `project.create` → взять `environmentId` → `compose.create` →
-   `compose.update` (источник GitHub + env) → `domain.create` на каждый домен.
+   выбери проект-кластер (`project.all` → `environmentId` окружения
+   `production`; `project.create` только если кластера ещё нет) →
+   `compose.create` (или `application.create` для сервиса из одного
+   Dockerfile) → `compose.update` / `application.update` (источник GitHub +
+   env) → секретные файлы (keys.yaml и т.п.) через `mounts.create` **до**
+   первого деплоя (маунт, созданный после, попадёт в контейнер только
+   следующим деплоем) → `domain.create` на каждый домен.
 7. **Сохрани креды** в `<creds-dir>/<проект>-creds.md`.
 8. **Подтверждение** (enforcement, п.5) → **Deploy**: `compose.deploy`,
    следи за статусом.
@@ -168,7 +207,9 @@ composeId/applicationId и статусами. Если непонятно, на
 - **Логи рантайма**: по SSH read-only (адрес — в servers.md):
   `docker ps --filter name=<appName>`, `docker logs --tail 200 <container>`.
   `appName` сервиса даёт `compose.one`. Если SSH для сервера не записан —
-  ограничься логами деплоя через API.
+  через API: `deployment.allByCompose` → `deployment.readLogs` (лог сборки и
+  `docker compose up`), `docker.getContainers` (состояние контейнеров);
+  stdout контейнера API не отдаёт — воспроизводи локально.
 - **Диагностика упавшего сервиса**, типовой порядок: `composeStatus` →
   логи последнего деплоя (ошибка сборки?) → `docker ps -a` + `docker logs`
   (падает контейнер?) → healthcheck внутри контейнера → env (чего-то не
@@ -177,7 +218,13 @@ composeId/applicationId и статусами. Если непонятно, на
   `depends_on: service_completed_successfully` не стартуют), DNS не указывает
   на сервер (нет TLS). Если деплой завис/отменился без ошибки в логе — проверь
   память сервера (`free -m`, `dmesg | grep -i oom`): на малых VPS сборку
-  убивает OOM-killer, помогает swap.
+  убивает OOM-killer, помогает swap. Ещё две причины из практики: Docker
+  исчерпал пулы подсетей («all predefined address pools have been fully
+  subnetted» — на сервере слишком много compose-сетей, лечится только
+  владельцем через `default-address-pools` в daemon.json) и домен
+  отвечает 404 с сертификатом `TRAEFIK DEFAULT CERT` — Traefik не видит
+  здоровый контейнер: сервис в рестарт-цикле или не прошёл healthcheck
+  (`docker.getContainers`).
 - **Домены**: посмотреть — `domain.byComposeId`; добавить/изменить —
   `domain.create` / `domain.update`. Только так, не лейблами (п.5).
 

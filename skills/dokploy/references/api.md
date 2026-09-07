@@ -5,14 +5,18 @@
 Заголовки: `x-api-key: <api-key>` (+ `Content-Type: application/json` для POST).
 
 GET-эндпоинты принимают параметры query-строкой, POST — JSON-телом.
-Все payload'ы ниже проверены в бою (июль 2026, Dokploy v0.25+).
+Все payload'ы ниже проверены в бою (июль 2026, Dokploy v0.25+; сентябрь 2026,
+v0.30.5). Полный список маршрутов конкретной панели — `GET settings.getOpenApiDocument`
+(OpenAPI JSON, ~750 КБ): смотри туда, если эндпоинт отвечает 404 «Not found» — имя
+роутера могло отличаться (так `mount.create` не существует, есть `mounts.create`).
 
 ## Обзор и проекты
 
 ```
 GET  project.all                     # дерево: проекты → environments → compose/applications/БД со статусами
 GET  project.one?projectId=<id>      # один проект; environments[0].environmentId нужен для compose.create
-POST project.create                  # {"name": "...", "description": "..."} → {project: {projectId}, environment: {...}}
+POST project.create                  # {"name": "...", "description": "..."} → {project: {projectId}, environment: {environmentId}}
+                                     # проект = кластер сервисов (infra/agents/tools/research), не «один проект на сервис»
 ```
 
 Статусы сервисов: `idle` | `running` (деплой идёт) | `done` | `error`.
@@ -34,7 +38,8 @@ GET github.getGithubRepositories?githubId=<githubId>      # какие репо 
 
 ```
 GET  compose.one?composeId=<id>      # вся конфигурация: sourceType, repository, branch, composePath, env, appName, composeStatus
-POST compose.create                  # {"name": "...", "environmentId": "...", "composeType": "docker-compose"} → {composeId, appName, ...}
+POST compose.create                  # {"name": "...", "environmentId": "...", "composeType": "docker-compose", "appName": "<проект>-<репо>", "description": "..."} → {composeId, appName, ...}
+                                     # appName можно задать явно (Dokploy допишет случайный суффикс) — иначе будет compose-<три-слова>-xxxx
 POST compose.update                  # {"composeId": "...", ...любые поля...}
 POST compose.deploy                  # {"composeId": "..."} — ПОЛНЫЙ деплой: git clone + build + up (свежий коммит/ветка)
 POST compose.redeploy                # {"composeId": "..."} — rebuild из УЖЕ СКАЧАННОГО чекаута, git НЕ тянет!
@@ -99,8 +104,26 @@ POST domain.delete                   # {"domainId": "..."}
 GET deployment.allByCompose?composeId=<id>   # история деплоев: deploymentId, status, logPath
 ```
 
-Лог конкретного деплоя лежит на сервере по `logPath` — читать по SSH
-(адрес — в servers.md): `ssh <ssh> "tail -100 '<logPath>'"`.
+Лог конкретного деплоя — через API, SSH не нужен:
+
+```
+GET deployment.readLogs?deploymentId=<id>&tail=400     # tail 1..10000, дефолт 100
+GET deployment.allByType?id=<composeId|applicationId>&type=compose|application
+```
+
+Ответ `readLogs` — строка с логом сборки и `docker compose up` (Created / Started /
+Healthy / Exited по контейнерам). По SSH то же самое: `tail -100 '<logPath>'`.
+
+Состояние контейнеров без SSH:
+
+```
+GET docker.getContainers                                # все контейнеры сервера: name, state (running/restarting/exited), status
+GET docker.getContainersByAppNameMatch?appName=<appName>
+GET docker.getConfig?containerId=<id>                   # docker inspect
+```
+
+stdout/stderr контейнера API не отдаёт (только веб-сокет UI) — падающий контейнер
+воспроизводи локально тем же Dockerfile.
 
 Рантайм-логи контейнеров (SSH, только чтение):
 
@@ -114,6 +137,34 @@ ssh <ssh> "docker logs --tail 200 <container>"
 Симметрично compose: `application.one?applicationId=`, `application.create`,
 `application.update`, `application.deploy`, `application.redeploy`,
 `deployment.allByApplication?applicationId=`.
+
+Сервис из одного Dockerfile (проверено 2026-09-06, s3-gateway):
+
+```json
+POST application.create  {"name": "s3-gateway", "appName": "infra-s3-gateway", "environmentId": "...", "description": "..."}
+POST application.update  {"applicationId": "...", "sourceType": "github", "githubId": "...", "owner": "sber-nlab",
+                          "repository": "rag-s3-gateway", "branch": "main", "buildType": "dockerfile",
+                          "dockerfile": "Dockerfile", "dockerContextPath": ".", "env": "KEY=value\n..."}
+POST domain.create       {"applicationId": "...", "domainType": "application", "host": "...", "path": "/", "port": 8401,
+                          "https": true, "certificateType": "letsencrypt"}
+POST application.deploy  {"applicationId": "..."}      # ответ — пустое тело, статус смотри в application.one
+```
+
+## Файловые маунты (секретные файлы вне образа)
+
+Роутер называется `mounts` (во множественном числе; `mount.create` → 404 «Not found»):
+
+```json
+POST mounts.create  {"type": "file", "content": "<содержимое файла>", "filePath": "keys.yaml",
+                     "mountPath": "/app/keys.yaml", "serviceType": "application", "serviceId": "<applicationId>"}
+GET  mounts.listByServiceId?serviceId=...
+POST mounts.update / mounts.remove
+```
+
+`serviceId` — applicationId или composeId, `serviceType` — `application` | `compose` | тип БД.
+Файл пишется на диск сервера при деплое: маунт, созданный **после** деплоя, попадёт в
+контейнер только следующим `deploy`/`redeploy`. Текущие маунты сервиса видны в
+`application.one` / `compose.one` → `mounts[]` (с содержимым).
 
 ## Паттерн: дождаться конца деплоя
 

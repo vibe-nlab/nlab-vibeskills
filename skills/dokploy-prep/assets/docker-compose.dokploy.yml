@@ -74,6 +74,32 @@ services:
       start_period: 30s
     logging: *default-logging
 
+  # ---- Опционально: паттерны для сервисов с данными и соседями ----------
+  # (1) БД, в которую ходит СОСЕДНИЙ стек по dokploy-network. Имя контейнера
+  #     у Dokploy случайное, поэтому публикуем стабильный сетевой алиас:
+  #
+  # qdrant:
+  #   image: qdrant/qdrant:latest
+  #   networks:
+  #     internal: {}
+  #     dokploy-network:
+  #       aliases: [myrepo-qdrant]        # сосед: http://myrepo-qdrant:6333
+  #
+  # (2) One-shot сидер начальных данных (как migrate): идемпотентен, источник —
+  #     снапшот по URL из env. Так данные переезжают между серверами без SSH.
+  #
+  # qdrant-loader:
+  #   image: alpine:3.20
+  #   restart: "no"
+  #   depends_on: {qdrant: {condition: service_healthy}}
+  #   environment:
+  #     SNAPSHOT_URL: ${QDRANT_SNAPSHOT_URL:-}
+  #   volumes: ["./scripts:/scripts:ro"]
+  #   command: ["sh", "-c", "apk add --no-cache curl >/dev/null && sh /scripts/load_snapshot.sh"]
+  #   networks: [internal]
+  # …а приложение добавляет qdrant-loader в depends_on с
+  # condition: service_completed_successfully.
+
 volumes:
   postgres_data:
 
