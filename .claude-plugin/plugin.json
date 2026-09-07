@@ -1,7 +1,7 @@
 {
   "name": "nlab",
   "description": "Скиллы NeuroLab на весь цикл проекта: /nlab:project-start — короткое Discovery и каркас, /nlab:prototype — кликабельный макет, на котором снимаются требования, /nlab:code-design — архитектура по DDD и модели данных кодом, /nlab:design-ui — дизайн-система поверх shadcn и AI Elements, /nlab:observability — трейсинг агентов в общий MLflow, /nlab:dokploy-prep и /nlab:dokploy — подготовка и деплой.",
-  "version": "4.13.0",
+  "version": "4.13.1",
   "author": {
     "name": "NeuroLab (vibe-nlab)",
     "url": "https://github.com/vibe-nlab"

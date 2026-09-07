@@ -24,6 +24,7 @@ https://mlflow.org/docs/latest/genai/tracing/integrations/listing/pydantic_ai/
 """
 
 import contextlib
+import atexit
 import logging
 import os
 import sys
@@ -108,9 +109,30 @@ def setup_tracing(service_name: str) -> bool:
         return False
     _enabled = True
     _mode = mode
+    # Короткий процесс (CLI-шаг, скрипт, cron) умирает раньше, чем фоновая очередь
+    # MLflow успевает стартовать: спан уходит в экспорт уже на shutdown, тред не
+    # создаётся («can't create new thread at interpreter shutdown»), трейса на
+    # сервере нет, а скрипт отчитался «отправлено». Регистрируем сброс ПОСЛЕ импорта
+    # mlflow — atexit выполняется в обратном порядке, и наш flush пройдёт раньше
+    # встроенного, пока треды ещё можно создавать. Долгоживущему сервису не мешает.
+    atexit.register(flush_tracing)
     logger.info("MLflow-трейсинг включён: %s (experiment %s, режим %s)", uri,
                 os.getenv("MLFLOW_EXPERIMENT", service_name), mode)
     return True
+
+
+def flush_tracing(timeout_s: float = 10.0) -> None:
+    """Дослать всё накопленное на сервер. Вызывать в конце единицы работы короткого
+    процесса (и перед `sys.exit`); в сервисе — не нужно, но безвредно.
+    Ошибки глотает: сброс трейсов не должен ронять завершение программы."""
+    if not _enabled:
+        return
+    try:
+        import mlflow
+
+        mlflow.flush_trace_async_logging()
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("не удалось дослать трейсы на сервер: %s", exc)
 
 
 def _enable_autolog(mlflow) -> str:
