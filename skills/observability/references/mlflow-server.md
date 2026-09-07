@@ -1,89 +1,149 @@
 # Общий MLflow Tracking Server NeuroLab
 
-Каноничное место, где живёт адрес общего сервера трейсинга. Обновляется
-только через реестр (как сами скиллы), локально не редактировать.
+Каноничное место, где живёт адрес общего сервера трейсинга и правила доступа
+к нему. Обновляется только через реестр (как сами скиллы), локально не
+редактировать. **Паролей и токенов здесь нет и не будет** — реестр публичный;
+секреты живут в Vault (ниже).
 
 ## Адрес
 
 | Параметр | Значение |
 |---|---|
-| `MLFLOW_TRACKING_URI` | **НЕ РАЗВЁРНУТ** — адреса пока нет (на 2026-07-31) |
-| `OTEL_EXPORTER_OTLP_TRACES_ENDPOINT` | тот же адрес + `/v1/traces` — для пути «OTLP» (см. SKILL.md §4) |
-| Доступ (логин/токен) | выдаётся вместе с адресом |
+| `MLFLOW_TRACKING_URI` | `https://mlflow.a.nlabstudio.ru` |
+| `OTEL_EXPORTER_OTLP_TRACES_ENDPOINT` | `https://mlflow.a.nlabstudio.ru/v1/traces` — для пути «OTLP» (SKILL.md §4) |
+| UI | тот же адрес в браузере, вход по тем же логину/паролю |
+| Доступ | basic-auth (встроенный `basic-auth` MLflow); без логина сервер отвечает 401 на всё, включая `/v1/traces` |
+| Развёрнут | 2026-09-06, главный Dokploy-сервер лаборатории; конфиг — в репо инфраструктуры `sber-nlab/infrastructure`, здесь не дублируется |
+| Версия сервера | 3.16.0 на 2026-09-07 (инкрементальная доставка спанов и OTLP-ингест есть) |
 
-**Адреса здесь нет → спроси у ответственных** в Telegram:
-[@sanchezgl](https://t.me/sanchezgl) или
-[@KirillBorovkov](https://t.me/KirillBorovkov) — те же, кто выдаёт
-репозитории и LLM-ключи. Пока адрес не выдан:
+Сервер один на компанию. Свой MLflow под проект **не поднимать** — смысл в
+одном месте, где видны трейсы всех агентов.
 
-- в проекте адрес (`MLFLOW_TRACKING_URI` или
-  `OTEL_EXPORTER_OTLP_TRACES_ENDPOINT`, смотря какой путь подключения)
-  остаётся **пустым** — трейсинг выключен, приложение работает как обычно
-  (это штатный режим, не ошибка);
-- свой MLflow-сервер под проект **не поднимать** — смысл в одном общем
-  месте, где видны трейсы всех агентов; когда сервер появится, адрес
-  впишется в env без правок кода;
-- адрес появился → вписать его сюда (через реестр) и в env проектов.
+## Доступ: логин/пароль — из Vault
+
+Все проекты пишут трейсы от одного сервисного аккаунта (не админского). Его
+логин и пароль лежат в Vault, а не в этом файле, не в чате и не в репо проекта:
+
+| Параметр | Значение |
+|---|---|
+| `VAULT_ADDR` | `https://vault.a.nlabstudio.ru` |
+| Секрет | KV v2, путь `secret/platform/mlflow`, поля `uri`, `username`, `password` |
+| Токен разработчика | `VAULT_TOKEN` с политикой `mlflow-agents-ro` — читает **только** этот секрет; личный, выдаётся на человека |
+| Кто выдаёт токен | [@sanchezgl](https://t.me/sanchezgl) / [@KirillBorovkov](https://t.me/KirillBorovkov) — руками или через бота; те же, кто выдаёт репозитории и LLM-ключи |
+
+**Код-агент забирает креды сам**, если у разработчика есть токен (в env
+`VAULT_TOKEN` или в файле `~/.vault-token` — туда его кладёт `vault login`):
+
+```bash
+curl -sf -H "X-Vault-Token: ${VAULT_TOKEN:-$(cat ~/.vault-token)}" \
+  "https://vault.a.nlabstudio.ru/v1/secret/data/platform/mlflow" \
+| python3 -c 'import sys, json; d = json.load(sys.stdin)["data"]["data"]
+print(f"MLFLOW_TRACKING_URI={d[\"uri\"]}")
+print(f"MLFLOW_TRACKING_USERNAME={d[\"username\"]}")
+print(f"MLFLOW_TRACKING_PASSWORD={d[\"password\"]}")'
+```
+
+То же через CLI: `vault kv get -format=json secret/platform/mlflow`.
+
+Куда это кладётся — и куда нет:
+
+- **в `.env` проекта** (он в `.gitignore`; проверь `git check-ignore -q .env`)
+  — три строки выше. Приложению Vault не нужен: клиент MLflow читает
+  `MLFLOW_TRACKING_USERNAME` / `MLFLOW_TRACKING_PASSWORD` из окружения сам,
+  никакого кода под авторизацию писать не надо;
+- **в `.env.dokploy.example`** — те же имена переменных с **пустыми** значениями
+  и комментарием `# из Vault: secret/platform/mlflow`. Хостящий берёт значения
+  из Vault и вписывает в Dokploy Environment (политика `dokploy-ro` этот секрет
+  читает);
+- **никуда больше**: не в код, не в `NOTES.md`/`EVIDENCE.md`, не в коммит, не в
+  описание PR, не в лог. `VAULT_TOKEN` в `.env` тоже не пишется — он нужен один
+  раз, чтобы забрать секрет, и живёт в shell/`~/.vault-token`.
+
+Токена нет → трейсинг **выключен** (`MLFLOW_TRACKING_URI` пустой), приложение
+работает как обычно; интеграция ставится сейчас, значения впишутся позже без
+правок кода. Пароль в чате у пользователя не просить — просить токен Vault у
+ответственных. Пароль сменили → обновляется секрет в Vault, проекты забирают
+заново; в git ничего не меняется.
+
+## Путь «OTLP» (без пакета `mlflow`): авторизация заголовком
+
+Экспортёр OTel не читает переменные MLflow, поэтому логин/пароль передаются
+заголовком `Authorization: Basic <base64(username:password)>` вместе с id
+эксперимента — оба в одной переменной, через запятую:
+
+```bash
+BASIC=$(printf '%s:%s' "$MLFLOW_TRACKING_USERNAME" "$MLFLOW_TRACKING_PASSWORD" | base64)
+OTEL_EXPORTER_OTLP_TRACES_ENDPOINT=https://mlflow.a.nlabstudio.ru/v1/traces
+OTEL_EXPORTER_OTLP_TRACES_HEADERS="Authorization=Basic ${BASIC},x-mlflow-experiment-id=<id>"
+```
+
+Пробел внутри `Basic …` и `=` в хвосте base64 SDK OpenTelemetry разбирает
+правильно (проверено на opentelemetry-sdk 1.x, 2026-09-07). Эксперимент на этом
+пути надо **создать заранее** — экспортёр его не создаёт, а без id сервер спаны
+не примет:
+
+```bash
+curl -sf -u "$MLFLOW_TRACKING_USERNAME:$MLFLOW_TRACKING_PASSWORD" \
+  -X POST https://mlflow.a.nlabstudio.ru/api/2.0/mlflow/experiments/create \
+  -H 'Content-Type: application/json' -d '{"name": "<имя-репозитория>"}'
+# уже есть → 400 RESOURCE_ALREADY_EXISTS; id: …/experiments/get-by-name?experiment_name=<имя>
+```
+
+Неверный пароль на этом пути **не роняет** приложение: экспортёр печатает
+`Failed to export span batch code: 401` в лог и трейсы молча теряются — после
+первого прогона проверь, что трейс реально появился в UI.
+
+## Известная ловушка: обычному аккаунту сервер не отдаёт `/version`
+
+Basic-auth MLflow ≥ 3.16 по умолчанию работает fail-closed
+(`MLFLOW_BASIC_AUTH_FAIL_CLOSED=true`): маршруты без явного правила доступа
+отдаются только админам, и `GET /version` среди них. Сервисному аккаунту он
+отвечает `Permission denied`. Клиент MLflow по этому маршруту узнаёт версию
+сервера и только тогда включает инкрементальный `log_spans` (нужен ≥ 3.4);
+не узнал — молча пишет трейс целиком в конце запуска. Симптомы на стороне
+проекта (проверено 2026-09-07 на сервере 3.16.0):
+
+- в UI трейс появляется только после конца запуска, сразу со `state=OK`;
+- `realtime_probe.py` печатает «виден None» по всем шагам и предупреждение про
+  `/version`; тот же прогон от админа — `IN_PROGRESS`, шаги едут по одному;
+- `GET /api/3.0/mlflow/traces/batchGet` отвечает 500
+  `Trace data not stored in tracking store` (спаны ушли артефактом).
+
+Это ограничение **сервера**, не проекта: гейт реалтайма в SKILL.md §5 на
+такой прогон не заваливается — в `EVIDENCE.md` пишется вывод замерялки с этим
+предупреждением. Чинится владельцем сервера одной переменной окружения
+`MLFLOW_BASIC_AUTH_FAIL_CLOSED=false` (маршруты API остаются под авторизацией,
+открываются только «неразмеченные» вроде `/version`, и то после логина);
+проверка после правки — `curl -u <логин>:<пароль> https://mlflow.a.nlabstudio.ru/version`
+отдаёт номер версии. Путь «OTLP» ловушки не имеет: экспортёр OTel версию не
+спрашивает, спаны едут сразу.
 
 ## Как это работает
 
 Один Tracking Server на компанию. У каждого проекта — свой **experiment**
-с именем выданного репозитория. Агенты пишут трейсы по
-`MLFLOW_TRACKING_URI` из окружения; UI сервера — то же самое URI в браузере.
+с именем выданного репозитория; на пути «мост» его создаёт
+`mlflow.set_experiment()` при первом запуске, права на создание у сервисного
+аккаунта есть. Агенты пишут трейсы по `MLFLOW_TRACKING_URI` из окружения;
+UI сервера — то же самое URI в браузере.
 
 Что смотреть в UI: experiment проекта → вкладка **Traces** → трейс =
 дерево спанов «agent run → LLM-вызовы → tool/MCP-вызовы»; внутри спанов —
 промпты, ответы, аргументы инструментов, токены и латентность. Диалоги
 группируются по тегам `mlflow.trace.session` / `mlflow.trace.user`.
 
-## Каноничный compose для развёртывания (когда придёт время)
+## Для тех, кто выдаёт доступ
 
-Разворачивается один раз на Dokploy-сервере компании по конвенциям
-`/nlab:dokploy-prep` (веб-сервис в `dokploy-network`, данные в named
-volumes, без хост-портов; домен и TLS — через вкладку Domains). Основа:
+Политика `mlflow-agents-ro` уже заведена в Vault (читает только
+`secret/platform/mlflow`; на `secret/platform/*` и список префикса — 403,
+проверено 2026-09-07). Личный токен разработчику:
 
-```yaml
-services:
-  mlflow:
-    image: ghcr.io/mlflow/mlflow:latest   # зафиксировать конкретную версию
-    command: >
-      mlflow server
-      --backend-store-uri postgresql://mlflow:${POSTGRES_PASSWORD:?}@mlflow-db:5432/mlflow
-      --artifacts-destination /mlflow-artifacts
-      --host 0.0.0.0 --port 5000
-    volumes:
-      - mlflow-artifacts:/mlflow-artifacts
-    networks: [dokploy-network, internal]
-    depends_on:
-      mlflow-db:
-        condition: service_healthy
-
-  mlflow-db:
-    image: postgres:16
-    environment:
-      POSTGRES_USER: mlflow
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?}
-      POSTGRES_DB: mlflow
-    volumes:
-      - mlflow-db:/var/lib/postgresql/data
-    networks: [internal]
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U mlflow"]
-      interval: 5s
-      retries: 10
-
-volumes:
-  mlflow-artifacts:
-  mlflow-db:
-
-networks:
-  dokploy-network:
-    external: true
-  internal: {}
+```bash
+vault token create -policy=mlflow-agents-ro -ttl=720h -display-name=<кто>
+# политику default не снимать: без неё держатель не сможет продлить/отозвать свой токен
 ```
 
-Обязательно при развёртывании: аутентификация (у MLflow есть встроенный
-basic-auth app — `mlflow server --app-name basic-auth`, либо auth на уровне
-реверс-прокси) — трейсы содержат промпты и данные пользователей, наружу
-без пароля их не выставлять. Актуальные детали сверить по
-<https://mlflow.org/docs/latest/self-hosting/>.
+Тот же вызов делает бот через `POST /v1/auth/token/create`. В Vault включён
+и `github`-auth для организации `vibe-nlab`: если сопоставить команду
+организации с этой политикой, разработчики смогут получать токен сами через
+`vault login -method=github` — решение за владельцами Vault. Root-токен Vault
+и админский аккаунт MLflow никому не выдаются и в проекты не попадают.

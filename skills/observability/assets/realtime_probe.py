@@ -25,6 +25,9 @@
 служит и образцом.
 
 Требуется: `requests` (тянется вместе с mlflow), `python-dotenv`.
+Общий сервер закрыт basic-auth: логин/пароль берутся из тех же переменных, что
+читает клиент MLflow, — `MLFLOW_TRACKING_USERNAME` / `MLFLOW_TRACKING_PASSWORD`
+(без них сервер отвечает 401, и замер видит «трейсов нет», а не ошибку доступа).
 Нужен ИМЕННО HTTP-сервер MLflow: локальное файловое хранилище (`./mlruns`,
 `sqlite:///…`) опрашивать нечем — замер на нём бессмысленен.
 """
@@ -42,6 +45,13 @@ from dotenv import load_dotenv
 
 POLL_INTERVAL = 1.0
 T0 = time.monotonic()
+
+
+def server_auth() -> tuple[str, str] | None:
+    """Basic-auth общего сервера — из тех же env, что читает клиент MLflow."""
+    user = os.getenv("MLFLOW_TRACKING_USERNAME", "").strip()
+    password = os.getenv("MLFLOW_TRACKING_PASSWORD", "")
+    return (user, password) if user else None
 
 
 def el() -> float:
@@ -93,6 +103,7 @@ class Poller(threading.Thread):
                     ],
                     "max_results": 5,
                 },
+                auth=server_auth(),
                 timeout=10,
             )
             for tr in resp.json().get("traces", []):
@@ -108,6 +119,7 @@ class Poller(threading.Thread):
         resp = requests.get(
             f"{self.base}/api/3.0/mlflow/traces/batchGet",
             params={"trace_ids": self.trace_id},
+            auth=server_auth(),
             timeout=10,
         )
         traces = resp.json().get("traces", [])
@@ -137,8 +149,15 @@ def search_traces(base: str, experiment_id: str, max_results: int) -> list[dict]
                 "locations": [{"mlflow_experiment": {"experiment_id": experiment_id}}],
                 "max_results": max_results,
             },
+            auth=server_auth(),
             timeout=10,
         )
+        if resp.status_code == 401:
+            raise SystemExit(
+                f"сервер {base} требует логин/пароль (401): задай "
+                "MLFLOW_TRACKING_USERNAME / MLFLOW_TRACKING_PASSWORD — см. "
+                "references/mlflow-server.md (креды выдаёт Vault)."
+            )
         resp.raise_for_status()
         return resp.json().get("traces", [])
     except requests.RequestException as exc:
@@ -209,6 +228,23 @@ async def main() -> None:
             "хранилище. Опрашивать нечего: подними `mlflow server` и укажи его "
             "адрес, иначе замер видимости смысла не имеет."
         )
+
+    # Инкрементальную доставку спанов клиент включает, только если сумел прочитать
+    # `GET /version`. Basic-auth MLflow ≥ 3.16 в режиме fail-closed (дефолт) отдаёт
+    # /version лишь админам: обычному аккаунту — «Permission denied», клиент молча
+    # откатывается на «трейс целиком в конце», и замер показал бы «виден None» без
+    # объяснения. Проверяем заранее и называем причину.
+    ver = requests.get(f"{base.rstrip('/')}/version", auth=server_auth(), timeout=10)
+    if not (ver.ok and ver.text.strip()[:1].isdigit()):
+        print(
+            f"ВНИМАНИЕ: {base}/version отвечает {ver.status_code} {ver.text.strip()[:40]!r} "
+            "этому аккаунту → клиент MLflow НЕ включит инкрементальный log_spans, трейс "
+            "появится только в конце запуска (это ограничение сервера, не проекта). "
+            "Лечится на сервере: MLFLOW_BASIC_AUTH_FAIL_CLOSED=false — см. "
+            "references/mlflow-server.md."
+        )
+    else:
+        print(f"сервер MLflow {ver.text.strip()}, /version доступен — инкрементальная доставка возможна")
 
     experiment = mlflow.get_experiment_by_name(exp_name)
     if experiment is None:

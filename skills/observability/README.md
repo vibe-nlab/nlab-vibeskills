@@ -45,12 +45,15 @@ MLflow, но и внешний вьюер лаборатории — одина�
    `backend/infrastructure/tracing.py`, пропишет `MLFLOW_TRACKING_URI`
    в env-файлы и проверит работу на живом вызове агента.
 
-## Адрес сервера
+## Адрес сервера и доступ
 
-Адрес общего сервера живёт в
-[references/mlflow-server.md](references/mlflow-server.md). Если его там
-нет — запросите у [@sanchezgl](https://t.me/sanchezgl) или
-[@KirillBorovkov](https://t.me/KirillBorovkov). Пока адреса нет,
-`MLFLOW_TRACKING_URI` остаётся пустым — трейсинг просто выключен,
-приложение работает как обычно; адрес потом вписывается в env без
-правок кода.
+Общий сервер — `https://mlflow.a.nlabstudio.ru`, закрыт логином/паролем.
+Адрес и правила доступа живут в
+[references/mlflow-server.md](references/mlflow-server.md); сами логин и
+пароль — в Vault (`secret/platform/mlflow`), откуда Claude забирает их
+по вашему личному токену Vault и кладёт только в `.env` проекта. Токен
+выдают [@sanchezgl](https://t.me/sanchezgl) или
+[@KirillBorovkov](https://t.me/KirillBorovkov) (руками или через бота).
+Пока токена нет, `MLFLOW_TRACKING_URI` остаётся пустым — трейсинг просто
+выключен, приложение работает как обычно; значения потом вписываются в env
+без правок кода. Реестр публичный: паролей в нём нет и не будет.
