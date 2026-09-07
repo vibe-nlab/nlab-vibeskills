@@ -257,6 +257,34 @@ env, домены) обязателен только `servers.md`.
   6. Запиши сервер в `~/.claude/nlab/dokploy-servers.md` по шаблону
      servers.example.md (папку `~/.claude/nlab/` создай, если её нет).
 
+**Сервер лаборатории (`dokploy.a.nlabstudio.ru`): доступ не спрашивают в чате, а
+получают по заявке и читают из Vault.** Личность подтверждает GitHub, ключи никто
+никому не пересылает. Порядок:
+
+1. Токен Vault: `vault login -method=github token=$(gh auth token)` — тот же, что в
+   `observability`. Не пускает — пользователь не в org `vibe-nlab`; инвайт даёт
+   владелец вместе с репозиторием, дальше стоп.
+2. Реквизиты — секрет `secret/users/<github-login>/dokploy` (поля `url`, `api_key`,
+   `project`, `wildcard_domain`):
+   ```bash
+   curl -sf -H "X-Vault-Token: ${VAULT_TOKEN:-$(cat ~/.vault-token)}" \
+     "https://vault.a.nlabstudio.ru/v1/secret/data/users/<github-login>/dokploy" | jq .data.data
+   ```
+   Нашёл — заполни из него `dokploy-servers.md` (URL, ключ, `wildcard-domain`, проект
+   из поля `project`) и пользователя ни о чём не спрашивай.
+3. Секрета нет (404) — подай заявку сам и подожди:
+   ```bash
+   gh issue create -R vibe-nlab/onboarding -t "onboard <проект>" -b ""
+   ```
+   Проект — имя выданного репозитория; кластер по умолчанию `agents`, иначе
+   `onboard <проект> tools`. Workflow отвечает в issue за минуту — повторяй шаг 2
+   до пяти минут. Заявку отклонили — причина в комментарии issue (обычно нет push
+   в `sber-nlab/<проект>`): покажи её пользователю и остановись.
+
+Ключ панели в чат не просить, свой Dokploy не поднимать. Секреты самого проекта
+разработчик кладёт сам в `secret/<проект>/*` — право приходит вместе с заявкой; в env
+они идут ссылками `${{vault…}}` (см. `dokploy-prep`).
+
 Все API-вызовы дальше — `<url>/api/<endpoint>` с заголовком
 `x-api-key: <api-key>` выбранного сервера. Полный справочник эндпоинтов с
 проверенными payload'ами — в [references/api.md](references/api.md), читай его
