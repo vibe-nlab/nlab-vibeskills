@@ -4,6 +4,13 @@
 сервера в реестре `~/.claude/nlab/dokploy-servers.md`.
 Заголовки: `x-api-key: <api-key>` (+ `Content-Type: application/json` для POST).
 
+**Кодировка.** Тело POST — JSON в UTF-8, заголовок ровно `Content-Type: application/json`,
+без `; charset=utf-8`: с charset парсер панели тело не разбирает и отвечает
+`composeId: expected string, received undefined` на любой корректный payload.
+Кириллицу (описания, названия) не вставляй строкой в командную строку — из shell в
+не-UTF-8 кодировке (консоль Windows, `LANG=C`) она сохраняется как `����`; пиши JSON
+в файл в UTF-8 и отправляй `curl --data-binary @body.json`.
+
 GET-эндпоинты принимают параметры query-строкой, POST — JSON-телом.
 Все payload'ы ниже проверены в бою (июль 2026, Dokploy v0.25+; сентябрь 2026,
 v0.30.5). Полный список маршрутов конкретной панели — `GET settings.getOpenApiDocument`

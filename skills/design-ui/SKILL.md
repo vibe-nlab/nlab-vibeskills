@@ -3,14 +3,14 @@ name: design-ui
 title: "Design UI: дизайн-система NeuroLab для shadcn-интерфейсов"
 description: Дизайн-система NeuroLab поверх shadcn/ui — построить UI оригинальным скиллом shadcn (обязательная зависимость, ставится отдельно), а чат-интерфейсы и всё AI-специфичное — компонентами AI Elements (elements.ai-sdk.dev, реестр поверх shadcn), затем применить фирменные правки — шрифт Montserrat (самохост, кириллица) и базовый размер 16px (root НЕ масштабируется) в обеих темах; в тёмной теме — графитово-серые/тёпло-бежевые нейтрали (#272726 и производные токены) вместо дефолтной чёрной; в светлой цвета не трогать; у сервисов с несколькими разделами (дашборды, вкладки меню) навигация — сайдбаром (shadcn Sidebar), не табами и не навбаром; пользователю всегда давать ссылки на ui.shadcn.com и elements.ai-sdk.dev, чтобы он сам выбрал компоненты. Вызывается командой /nlab:design-ui. Использовать, когда пользователь просит «дизайн NeuroLab», «в стиле nlab», «наш графит», собирает shadcn-интерфейс или чат с AI, который должен выглядеть по конвенциям NeuroLab.
 owner: alexgl-dev
-version: 1.4.0
+version: 1.4.1
 status: in-use
 scope: все shadcn-интерфейсы NeuroLab (новые и существующие проекты)
 stage: design
 depends_on: [shadcn]
 optional_deps: [ai-elements]
 autonomy_level: R4
-last_reviewed: 2026-08-14
+last_reviewed: 2026-09-07
 registry_url: https://github.com/vibe-nlab/nlab-vibeskills
 update_check: per_session
 allowed-tools: Bash(npx shadcn@latest *), Bash(pnpm dlx shadcn@latest *), Bash(bunx --bun shadcn@latest *), Bash(npx ai-elements@latest *), Bash(pnpm dlx ai-elements@latest *), Bash(bunx --bun ai-elements@latest *)
@@ -343,6 +343,23 @@ Append-only запись в `EVIDENCE.md` (проверяемые формули
 не проверять, достаточно факта установки (п.2); актуальный список компонентов
 AI Elements всегда смотреть на `https://elements.ai-sdk.dev/docs`, а не по
 памяти.
+
+**Обратная связь в реестр.** Наткнулся на то, чего в скилле нет или что в нём
+неверно — API отвечает не так, как описано, шаг не проходит, нашлась грабля,
+есть что улучшить — не молчи и не правь локальную копию: заведи issue в реестре
+и продолжай работу обходным путём. Сначала поищи существующее
+(`gh issue list -R vibe-nlab/nlab-vibeskills -S "<ключевые слова>"`), одна
+проблема — одно issue:
+
+```bash
+gh issue create -R vibe-nlab/nlab-vibeskills -l skill-feedback \
+  -t "<скилл> <версия>: <суть в одну строку>" \
+  -b "<что ожидал; что произошло (ошибка дословно); как воспроизвести; предложение>"
+```
+
+Без секретов и содержимого чужих проектов. Ссылку на issue запиши в `NOTES.md`
+проекта и одной строкой скажи пользователю. Нет `gh` — сформулируй текст issue
+пользователю, пусть заведёт сам.
 
 ## 11. Чего НЕ делать
 
