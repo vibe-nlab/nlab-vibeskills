@@ -118,6 +118,30 @@ Basic-auth MLflow ≥ 3.16 по умолчанию работает fail-closed
 отдаёт номер версии. Путь «OTLP» ловушки не имеет: экспортёр OTel версию не
 спрашивает, спаны едут сразу.
 
+## Проверка связи за минуту
+
+Три переменные в окружении (из Vault, см. выше) и скрипт:
+
+```python
+import mlflow, os
+print("клиент:", mlflow.__version__)          # нужен 3.x
+print("uri:", os.getenv("MLFLOW_TRACKING_URI"))  # None → уйдёт в локальный ./mlruns, не на сервер
+mlflow.set_experiment("connectivity-check")
+
+@mlflow.trace
+def probe(x):
+    return x
+
+probe("ping")
+mlflow.flush_trace_async_logging()   # без этого короткий скрипт умирает раньше отправки
+print("трейс отправлен")
+```
+
+Сработало = в UI в эксперименте `connectivity-check` появился трейс со статусом OK
+и превью `{"x": "ping"}`. Без `flush_trace_async_logging()` скрипт печатает то же
+«трейс отправлен», а на сервере пусто (проверено 2026-09-07, клиент и сервер 3.16.0).
+`set_experiment` упал с 401 → логин/пароль не в окружении или неверные.
+
 ## Как это работает
 
 Один Tracking Server на компанию. У каждого проекта — свой **experiment**
