@@ -1,15 +1,15 @@
 ---
 name: observability
 title: "Observability: трейсинг агентов в общий MLflow"
-description: "Подключение проекта к обсервабилити NeuroLab — трейсинг pydantic-ai-агентов в общий MLflow Tracking Server. Флейвор mlflow.pydantic_ai работает только с pydantic-ai 1.x; на 2.x скилл переключается на нативную OTel-инструментацию — через мост MLflow, а если пакет mlflow в сервис не встаёт, то экспортом OTLP прямо в MLflow. В трейсы попадают промпты, сообщения пользователя, вызовы LLM/инструментов/MCP, structured output и токены. Адрес сервера — только через MLFLOW_TRACKING_URI в env; пустая переменная = трейсинг выключен, приложение работает как обычно. Вызывается командой /nlab:observability. Использовать, когда просят подключить логирование/трейсинг/мониторинг агента, «посмотреть, какие промпты уходят», или при реализации бэкенда с агентами после /nlab:code-design."
+description: "Подключение проекта к обсервабилити NeuroLab — трейсинг pydantic-ai-агентов в общий MLflow Tracking Server. Флейвор mlflow.pydantic_ai работает только с pydantic-ai 1.x; на 2.x скилл переключается на нативную OTel-инструментацию — через мост MLflow, а если пакет mlflow в сервис не встаёт, то экспортом OTLP прямо в MLflow. В трейсы попадают промпты, сообщения пользователя, вызовы LLM/инструментов/MCP, structured output и токены. Адрес сервера — только через MLFLOW_TRACKING_URI в env; пустая переменная = трейсинг выключен, приложение работает как обычно. Логин/пароль общего сервера код-агент забирает из Vault по личному токену разработчика — в репо, чат и доки они не попадают. Вызывается командой /nlab:observability. Использовать, когда просят подключить логирование/трейсинг/мониторинг агента, «посмотреть, какие промпты уходят», или при реализации бэкенда с агентами после /nlab:code-design."
 owner: alexgl-dev
-version: 0.9.0
+version: 0.10.0
 status: in-use
 scope: любой проект с агентами на pydantic-ai (бэкенд по конвенциям NeuroLab)
 stage: prep
 depends_on: []
 autonomy_level: R3
-last_reviewed: 2026-09-03
+last_reviewed: 2026-09-07
 registry_url: https://github.com/vibe-nlab/nlab-vibeskills
 update_check: per_session
 ---
@@ -22,28 +22,35 @@ update_check: per_session
 трейсом в общий MLflow Tracking Server — видно, какой промпт ушёл, что
 передано, какие LLM-/tool-/MCP-вызовы случились внутри и что вернулось,
 сколько токенов потрачено. Один сервер на компанию, один experiment на
-проект. Интеграция — тонкая: одна env-переменная и один модуль
-`tracing.py`; без адреса сервера трейсинг молча выключен.
+проект. Интеграция — тонкая: три env-переменные (адрес, логин, пароль — два
+последних из Vault) и один модуль `tracing.py`; без адреса сервера трейсинг
+молча выключен.
 
 ## 2. Входные артефакты (Inputs) — ОБЯЗАТЕЛЬНО
 
 | Артефакт | Обязателен? | Кто предоставляет | Если отсутствует |
 |---|---|---|---|
 | Бэкенд с агентами на pydantic-ai (запускается) | да | предыдущие этапы Golden Path | остановиться: скилл инструментирует существующих агентов, а не пишет их |
-| Адрес общего MLflow-сервера | **нет** | [references/mlflow-server.md](references/mlflow-server.md) → ответственные | работать с пустым `MLFLOW_TRACKING_URI` (трейсинг выключен), см. п.6 шаг 2 — это штатный режим, не блокер |
+| Адрес общего MLflow-сервера | да | [references/mlflow-server.md](references/mlflow-server.md) — `https://mlflow.a.nlabstudio.ru` | — (адрес известен и публичен) |
+| Логин/пароль общего сервера (basic-auth) | **нет** | Vault, секрет `secret/platform/mlflow`, по личному `VAULT_TOKEN` разработчика; токен выдают ответственные | работать с пустым `MLFLOW_TRACKING_URI` (трейсинг выключен), см. п.6 шаг 2 — это штатный режим, не блокер |
 | `project-docs/` (NOTES/EVIDENCE) | желателен | `/nlab:project-start` | создать недостающие файлы по AGENTS.md §6 |
 
-**Порядок выяснения адреса сервера** (именно в этой последовательности):
+**Порядок получения доступа** (именно в этой последовательности):
 
-1. `.env` / `NOTES.md` проекта — возможно, адрес уже выдавали.
-2. [references/mlflow-server.md](references/mlflow-server.md) этого скилла —
-   каноничное место, где живёт адрес общего сервера.
-3. Адреса нет нигде → скажи пользователю запросить его у ответственных в
-   Telegram — [@sanchezgl](https://t.me/sanchezgl) или
-   [@KirillBorovkov](https://t.me/KirillBorovkov) (те же, кто выдаёт
-   репозитории и LLM-ключи), — и **продолжай работу с пустым
-   `MLFLOW_TRACKING_URI`**: интеграция ставится сейчас, адрес впишется
-   в env позже без правок кода. Не блокируйся и не поднимай свой сервер.
+1. `.env` проекта — возможно, `MLFLOW_TRACKING_USERNAME` / `MLFLOW_TRACKING_PASSWORD`
+   уже заполнены; тогда ничего не запрашивай.
+2. `VAULT_TOKEN` в окружении или `~/.vault-token` есть → **забери секрет сам**
+   командой из [references/mlflow-server.md](references/mlflow-server.md)
+   (`secret/platform/mlflow`: `uri`, `username`, `password`) и впиши три
+   переменные в `.env` проекта (он в `.gitignore`). Больше никуда: не в код,
+   не в `NOTES.md`/`EVIDENCE.md`, не в коммит и не в PR. Токен Vault в `.env`
+   тоже не пишется — приложению он не нужен.
+3. Токена нет → скажи пользователю запросить **токен Vault** (не пароль от
+   сервера) у ответственных в Telegram — [@sanchezgl](https://t.me/sanchezgl)
+   или [@KirillBorovkov](https://t.me/KirillBorovkov), руками или через
+   бота, — и **продолжай работу с пустым `MLFLOW_TRACKING_URI`**: интеграция
+   ставится сейчас, значения впишутся в env позже без правок кода. Не
+   блокируйся, не поднимай свой сервер и не проси пароль в чат.
 
 ## 3. Выходные артефакты (Outputs) — ОБЯЗАТЕЛЬНО
 
@@ -51,7 +58,7 @@ update_check: per_session
 |---|---|---|---|
 | `backend/infrastructure/tracing.py` | да | модуль по шаблону [assets/tracing.py](assets/tracing.py); `setup_tracing()` вызывается при старте приложения | приложение |
 | Зависимости трейсинга в бэкенде | да | путь «мост»: `mlflow>=3`; путь «OTLP»: `opentelemetry-sdk` + `opentelemetry-exporter-otlp-proto-http` (без `mlflow`) — см. §4 | сборка |
-| Адрес сервера в `.env` и `.env.dokploy.example` | да | путь «мост»: `MLFLOW_TRACKING_URI` (+ опц. `MLFLOW_EXPERIMENT`); путь «OTLP»: `OTEL_EXPORTER_OTLP_TRACES_ENDPOINT` + `OTEL_EXPORTER_OTLP_TRACES_HEADERS`. Пустое значение допустимо и означает «выключено»; комментарий — у кого спросить адрес | `/nlab:dokploy-prep`, хостящий |
+| Адрес и доступ к серверу в `.env` и `.env.dokploy.example` | да | путь «мост»: `MLFLOW_TRACKING_URI` + `MLFLOW_TRACKING_USERNAME` + `MLFLOW_TRACKING_PASSWORD` (+ опц. `MLFLOW_EXPERIMENT`); путь «OTLP»: `OTEL_EXPORTER_OTLP_TRACES_ENDPOINT` + `OTEL_EXPORTER_OTLP_TRACES_HEADERS` (basic-auth заголовком + id эксперимента). В `.env` — реальные значения из Vault; в `.env.dokploy.example` — пустые, с комментарием `# из Vault: secret/platform/mlflow`. Пустой адрес означает «выключено» | `/nlab:dokploy-prep`, хостящий |
 | Теги session/user на трейсах | да, если у сервиса есть пользователи/сессии | `tag_current_trace()` в обработчиках запросов | тот, кто смотрит трейсы |
 | Трейс, выполняющий контракт мониторинга v1 | да | типы спанов + атрибуты `nlab.*` (§4, «Контракт мониторинга»); проверяется [assets/check_contract.py](assets/check_contract.py) | внешний вьюер трейсов (плагин над MLflow) |
 | Запись в `EVIDENCE.md` | да | чем проверено (п.8), append-only | этапы Prep/Deploy |
@@ -89,9 +96,13 @@ update_check: per_session
   задаётся штатными переменными OTel:
 
   ```
-  OTEL_EXPORTER_OTLP_TRACES_ENDPOINT=http://<mlflow>/v1/traces
-  OTEL_EXPORTER_OTLP_TRACES_HEADERS=x-mlflow-experiment-id=<id эксперимента>
+  OTEL_EXPORTER_OTLP_TRACES_ENDPOINT=https://mlflow.a.nlabstudio.ru/v1/traces
+  OTEL_EXPORTER_OTLP_TRACES_HEADERS=Authorization=Basic <base64 user:pass>,x-mlflow-experiment-id=<id эксперимента>
   ```
+
+  Общий сервер закрыт basic-auth, а экспортёр OTel переменные MLflow не читает —
+  логин/пароль уезжают заголовком (как собрать — в references/mlflow-server.md).
+  Эксперимент на этом пути создаётся заранее через REST, экспортёр его не заведёт.
 
   Дальше — тот же `Agent.instrument_all(InstrumentationSettings(tracer_provider=
   <свой TracerProvider с OTLPSpanExporter>))`. Ограничения сервера: ингест
@@ -145,6 +156,24 @@ update_check: per_session
   процессом — в MLflow пусто, ошибок нет. Вешай сброс дважды: `atexit.register`
   на любой выход и явный `provider.force_flush(timeout_ms)` в конце единицы
   работы. Таймаут ставь конечным, иначе упавшая сеть будет держать завершение.
+- **Доступы — из Vault, не из чата и не из репо.** Общий сервер закрыт
+  basic-auth; клиент MLflow сам читает `MLFLOW_TRACKING_USERNAME` /
+  `MLFLOW_TRACKING_PASSWORD` из окружения, поэтому код под авторизацию не
+  пишется — пишутся три строки в `.env`, которые агент забирает из Vault по
+  токену разработчика (п.2). На пути «мост» неверный/пустой пароль падает
+  громко (401 на `set_experiment`, шаблон это ловит и пишет причину в лог);
+  на пути «OTLP» — тихо: экспортёр печатает `Failed to export span batch
+  code: 401` и трейсы теряются, поэтому после первого прогона проверь трейс
+  в UI, а не лог «включено». Реестр скиллов публичный: URL сервера в нём
+  есть, логина и пароля — нет и не будет.
+- **Общий сервер не отдаёт `/version` сервисному аккаунту — и клиент без этого
+  не включает реалтайм.** Basic-auth MLflow ≥ 3.16 в режиме fail-closed отдаёт
+  `/version` только админам; клиент MLflow по нему узнаёт версию сервера и лишь
+  тогда шлёт спаны инкрементально, иначе молча пишет трейс целиком в конце.
+  Проверено 2026-09-07: от `svc-agents` трейс появляется после финала со `state=OK`,
+  от админа — `IN_PROGRESS` и шаги по одному. Замерялка теперь называет причину;
+  лечится на сервере (`MLFLOW_BASIC_AUTH_FAIL_CLOSED=false`), не в проекте —
+  подробности в references/mlflow-server.md. Путь «OTLP» этой ловушки не имеет.
 - **Спаны шагов и спаны агента должны попасть в ОДИН трейс.** Без
   `MLFLOW_TRACE_PROPAGATE_TO_OTEL_CONTEXT=True` инструментация pydantic-ai не
   видит родителя из `mlflow.start_span()` и уезжает отдельным трейсом: в UI два
@@ -452,9 +481,10 @@ keyword и только опционально — старые вызовы н�
 | Правило | Технический механизм принуждения |
 |---|---|
 | Адрес сервера и креды — только через env, не в коде и не в репо | перед коммитом `grep -rE "MLFLOW_TRACKING_URI.{0,10}=.{0,10}https?" --include='*.py' backend/` → 0 находок; в `.env*.example` значение пустое или `CHANGE_ME_*` |
+| Пароль сервера и токен Vault не попадают в git, доки и PR | `git check-ignore -q .env` → успех; перед коммитом `git grep -nE "(MLFLOW_TRACKING_PASSWORD|VAULT_TOKEN)=[^[:space:]]|hvs\.[A-Za-z0-9]{20,}"` → 0 находок; в `NOTES.md`/`EVIDENCE.md` — факт «креды получены из Vault», не значения |
 | Пустой/отсутствующий `MLFLOW_TRACKING_URI` не ломает приложение | обязательный прогон перед сдачей: старт приложения и один вызов агента **без** переменной; падение → блокер, чинить до сдачи |
 | Обсервабилити не роняет прод | `setup_tracing()`/`tag_current_trace()` в шаблоне глотают свои исключения (try/except + лог) — при адаптации шаблона это не вырезать |
-| Реалтайм проверен поллингом, а не предположением | прогон многошагового агента с одновременным опросом сервера ([assets/realtime_probe.py](assets/realtime_probe.py)): до завершения запуска трейс обязан быть виден со `state=IN_PROGRESS`, а закрытые шаги — приезжать по одному. Видно только целиком в конце → сервер старше 3.4 либо спанов на шаги вообще нет, разбираться до сдачи |
+| Реалтайм проверен поллингом, а не предположением | прогон многошагового агента с одновременным опросом сервера ([assets/realtime_probe.py](assets/realtime_probe.py)): до завершения запуска трейс обязан быть виден со `state=IN_PROGRESS`, а закрытые шаги — приезжать по одному. Видно только целиком в конце → сервер старше 3.4 либо спанов на шаги вообще нет, разбираться до сдачи. Исключение — замерялка предупредила, что `/version` этому аккаунту недоступен: это ограничение общего сервера (references/mlflow-server.md), не блокер проекта — предупреждение целиком в `EVIDENCE.md` |
 | Спан не подменяет собой ошибку кода | прогон перед сдачей: шаг, который штатно падает (`raise ValueError("проба")`), с ВКЛЮЧЁННЫМ трейсингом отдаёт наружу тот же `ValueError`. Пришёл `RuntimeError: generator didn't stop after throw()` — значит `yield` тела оказался внутри `except` (см. `_quiet_span` в шаблоне), ошибка потеряна, чинить до сдачи |
 | Контракт мониторинга v1 выполнен | после прогона — `python check_contract.py` ([assets/check_contract.py](assets/check_contract.py)) на полученном трейсе: ненулевой код возврата = нарушено обязательное (нет спанов `AGENT`, нет `nlab.step.id`, нет меток трейса, корень без входа/выхода), чинить до сдачи. Вывод гейта — в `EVIDENCE.md` |
 | Ключи `inputs`/`outputs` и атрибутов спанов — латиницей | `grep -rnE '"[^"]*[а-яА-Я][^"]*" *:' --include='*.py' backend/` → 0 находок среди ключей, уходящих в спаны (значения-строки на русском — норма) |
@@ -463,10 +493,11 @@ keyword и только опционально — старые вызовы н�
 ## 6. Процесс (шаги)
 
 1. Проверь входные артефакты (п.2) и версию скилла в реестре (п.10).
-2. Выясни адрес сервера по порядку из п.2. Адреса нет — сообщи пользователю,
-   у кого его запросить ([@sanchezgl](https://t.me/sanchezgl) /
-   [@KirillBorovkov](https://t.me/KirillBorovkov)), и продолжай с пустой
-   переменной.
+2. Получи доступ по порядку из п.2: адрес — из references/mlflow-server.md,
+   логин/пароль — из Vault по токену разработчика, в `.env`. Токена нет —
+   сообщи пользователю, у кого его запросить ([@sanchezgl](https://t.me/sanchezgl) /
+   [@KirillBorovkov](https://t.me/KirillBorovkov)), и продолжай с пустым
+   `MLFLOW_TRACKING_URI`.
 3. Выбери путь подключения (§4) и добавь его зависимости: «мост» — `mlflow` в бэкенд;
    «OTLP» — `opentelemetry-sdk` + `opentelemetry-exporter-otlp-proto-http`, если `mlflow`
    в сервис не встаёт. Сверь API по докам (п.4).
@@ -489,19 +520,22 @@ keyword и только опционально — старые вызовы н�
    ставит сам.
 7. Привяжи session/user к трейсам (`tag_current_trace()`) там, где сервис
    их знает.
-8. Пропиши адрес сервера в `.env` и `.env.dokploy.example` — с комментарием
-   «пусто = трейсинг выключен; адрес общего сервера — у @sanchezgl /
-   @KirillBorovkov». Путь «мост»: `MLFLOW_TRACKING_URI` (+ при необходимости
-   `MLFLOW_EXPERIMENT`). Путь «OTLP»: `OTEL_EXPORTER_OTLP_TRACES_ENDPOINT` и
-   `OTEL_EXPORTER_OTLP_TRACES_HEADERS` с id эксперимента — переменные MLflow
-   на этом пути не читаются никем.
+8. Пропиши адрес и доступ в `.env` (реальные значения из Vault) и в
+   `.env.dokploy.example` (пустые, с комментарием «пусто = трейсинг выключен;
+   значения — из Vault `secret/platform/mlflow`, токен — у @sanchezgl /
+   @KirillBorovkov»). Путь «мост»: `MLFLOW_TRACKING_URI`,
+   `MLFLOW_TRACKING_USERNAME`, `MLFLOW_TRACKING_PASSWORD` (+ при
+   необходимости `MLFLOW_EXPERIMENT`). Путь «OTLP»:
+   `OTEL_EXPORTER_OTLP_TRACES_ENDPOINT` и `OTEL_EXPORTER_OTLP_TRACES_HEADERS`
+   с basic-auth и id эксперимента — переменные MLflow на этом пути не
+   читаются никем.
 9. Проверь работой, а не чтением кода (AGENTS.md §7a). Многошаговый агент прогоняй
    через [assets/fake_llm_router.py](assets/fake_llm_router.py) — полный путь, ноль
    токенов; живая модель нужна только для проверки качества ответов, не трейсинга:
-   - адрес есть → прогони реальный вызов агента, открой UI и дай
+   - доступ есть → прогони реальный вызов агента, открой UI и дай
      пользователю ссылку на конкретный трейс; убедись, что видны промпт,
      LLM-вызовы и tool/MCP-спаны;
-   - адреса нет → локальный `mlflow server` для смоук-проверки интеграции
+   - доступа нет → локальный `mlflow server` для смоук-проверки интеграции
      (п.4), затем обязательный прогон с пустой переменной (п.5);
    - **проверь реалтайм** — во время того же прогона опроси сервер
      ([assets/realtime_probe.py](assets/realtime_probe.py)) и покажи
@@ -555,14 +589,17 @@ Append-only запись в `EVIDENCE.md` (проверяемые формули
   числом шагов конвейера — расхождение вдвое означает, что шаги отбирались по
   типу спана и посчитаны вместе с библиотечными), где нашёлся системный промпт;
 - grep-гейты п.5 — 0 находок;
-- адрес общего сервера: вписан / запрошен у ответственных (у кого, когда);
+- доступ к общему серверу: креды получены из Vault (дата) / токен запрошен у
+  ответственных (у кого, когда) — факт, без значений;
 - отметка о проверке версии скилла (п.10).
 
 ## 9. Передача следующему скиллу (Handoff)
 
-Передаётся **`/nlab:dokploy-prep`**: переменная `MLFLOW_TRACKING_URI`
-должна попасть в `.env.dokploy.example` (пустая допустима), чтобы хостящий
-вписал реальный адрес в Dokploy Environment. Для того, кто смотрит трейсы,
+Передаётся **`/nlab:dokploy-prep`**: переменные `MLFLOW_TRACKING_URI`,
+`MLFLOW_TRACKING_USERNAME`, `MLFLOW_TRACKING_PASSWORD` должны попасть в
+`.env.dokploy.example` (пустые, с пометкой «из Vault `secret/platform/mlflow`»),
+чтобы хостящий взял значения из Vault и вписал в Dokploy Environment. Для того,
+кто смотрит трейсы,
 устройство сервера и UI описаны в
 [references/mlflow-server.md](references/mlflow-server.md).
 
@@ -581,12 +618,17 @@ Append-only запись в `EVIDENCE.md` (проверяемые формули
 ## 11. Пример (вход → выход)
 
 **Вход**: FastAPI-сервис `notes-agent` с pydantic-ai-агентом (гейт nlab как
-LLM-провайдер), общего MLflow-сервера ещё нет.
+LLM-провайдер); у разработчика есть `VAULT_TOKEN`.
 
 **Выход**: `mlflow>=3` в зависимостях; `backend/infrastructure/tracing.py`
-с `setup_tracing("notes-agent")` в lifespan; `MLFLOW_TRACKING_URI=` (пусто,
-с комментарием у кого спросить адрес) в `.env` и `.env.dokploy.example`;
-смоук на локальном `mlflow server`: трейс со спанами agent run → LLM →
-tool-вызовы, ссылка показана пользователю; прогон с пустой переменной —
-сервис работает; записи в `EVIDENCE.md`/`NOTES.md`; коммит. Пользователю
-сказано запросить адрес общего сервера у @sanchezgl / @KirillBorovkov.
+с `setup_tracing("notes-agent")` в lifespan; в `.env` — адрес, логин и пароль
+общего сервера, забранные из Vault (`secret/platform/mlflow`); в
+`.env.dokploy.example` — те же три переменные пустыми с комментарием «из
+Vault»; прогон на общем сервере: experiment `notes-agent` создан, трейс со
+спанами agent run → LLM → tool-вызовы, ссылка на него показана пользователю;
+`check_contract.py` и `realtime_probe.py` прошли; прогон с пустой переменной —
+сервис работает; `git grep` на пароль/токен — 0 находок; записи в
+`EVIDENCE.md`/`NOTES.md` (факт «креды из Vault», без значений); коммит.
+Токена нет → всё то же, но `MLFLOW_TRACKING_URI` пустой, смоук на локальном
+`mlflow server`, пользователю сказано запросить токен Vault у @sanchezgl /
+@KirillBorovkov.

@@ -77,6 +77,13 @@ def setup_tracing(service_name: str) -> bool:
         logger.info("MLFLOW_TRACKING_URI пуст — трейсинг выключен")
         _enabled = False
         return False
+    # Общий сервер закрыт basic-auth; клиент MLflow сам читает
+    # MLFLOW_TRACKING_USERNAME / MLFLOW_TRACKING_PASSWORD из окружения. Без них
+    # set_experiment ниже упадёт с 401 — предупреждаем заранее, чтобы в логе была
+    # причина, а не только стек. Креды выдаёт Vault (references/mlflow-server.md).
+    if uri.startswith(("http://", "https://")) and not os.getenv("MLFLOW_TRACKING_USERNAME"):
+        logger.warning("MLFLOW_TRACKING_USERNAME пуст — общий сервер %s ответит 401; "
+                       "логин/пароль берутся из Vault (secret/platform/mlflow)", uri)
     # Читается при инициализации OTel-провайдера MLflow, поэтому выставляется ДО
     # первого обращения к mlflow. Без него спаны pydantic-ai не видят родителя из
     # `step_span()` и уезжают ОТДЕЛЬНЫМ трейсом: в UI два несвязанных дерева на
