@@ -3,7 +3,7 @@ name: dokploy
 title: "Deploy: деплой и эксплуатация сервисов на Dokploy"
 description: Агент по деплою и эксплуатации сервисов на Dokploy-серверах пользователя. Деплой приложений из GitHub (проект → compose → env → домены → deploy → health-проверка), redeploy, логи, диагностика упавших сервисов, обновление env и доменов. При первом запуске подключает сервер (URL + API-ключ от пользователя) и заводит локальный реестр ~/.claude/nlab/dokploy-servers.md. Вызывается командой /nlab:dokploy.
 owner: alexgl-dev
-version: 1.2.2
+version: 1.2.3
 status: in-use
 scope: все проекты, которые хостятся на Dokploy-серверах пользователя (реестр серверов — локальный ~/.claude/nlab/dokploy-servers.md)
 stage: deploy
@@ -89,20 +89,21 @@ env, домены) обязателен только `servers.md`.
   зависимости в Dockerfile подтянут новые мажорные версии (проверено:
   `mcp>=1.2.0` без верхней границы получил 2.x и уронил контейнер). Перед
   переносом проверь пины в Dockerfile/requirements, а не только compose.
-- **Проверь исходящий доступ сервера.** Провайдеры блокируют по IP:
-  с `nlab-prod-sbercloud` (SberCloud) OpenRouter отвечает 403 «Access denied
-  by security policy», хотя тот же ключ с других серверов работает. Если
-  сервис после деплоя падает на внешнем API — сначала `curl` с сервера
-  (или из ошибки самого сервиса), потом уже код. Ограничения фиксируй в
+- **Проверь исходящий доступ сервера — из контейнера, а не `curl` с хоста.**
+  Провайдеры блокируют и по IP, и по клиенту: с `nlab-prod-sbercloud` `curl` к
+  OpenRouter, OpenAI и Anthropic получает 403 «Access denied by security policy»,
+  а приложение из контейнера через `httpx`/`requests` — 200/401 (WAF режет
+  TLS-отпечаток curl, IP не заблокирован; `rag-v2` считает эмбеддинги через
+  OpenRouter прямо оттуда). Диагностика:
+  `docker exec <контейнер> python -c "import httpx; print(httpx.get(url).status_code)"`.
+  Если сервис после деплоя падает на внешнем API — смотри ошибку самого сервиса
+  и повтори запрос из его контейнера, потом уже код. Ограничения фиксируй в
   реестре (`egress:`), решение о VPN/прокси — за владельцем сервера.
-- **LLM с таких серверов — только через гейт лаборатории** (`llm-gateway` в
-  реестре; на `nlab-prod-sbercloud` это `https://ai.nlabstudio.ru`, закрыты
-  OpenRouter, OpenAI и Anthropic разом). OpenAI-совместимым клиентам —
-  `LLM_BASE_URL=https://ai.nlabstudio.ru/v1`, Anthropic SDK —
-  `ANTHROPIC_BASE_URL=https://ai.nlabstudio.ru` (так живёт `nlab-llm-wiki`);
-  ключ гейта выдают ответственные, как и ключ OpenRouter. Сервис, перенесённый
-  с другого сервера с прямым `openrouter.ai` / `api.openai.com` в env, здесь
-  не заработает — сверь env с `egress:` до деплоя, а не по логам после.
+- **Гейт лаборатории `https://ai.nlabstudio.ru`** (`llm-gateway` в реестре) —
+  штатный путь для LLM по политике (единый ключ, учёт), а не из-за блокировки:
+  `LLM_BASE_URL=https://ai.nlabstudio.ru/v1` для OpenAI-совместимых клиентов,
+  `ANTHROPIC_BASE_URL=https://ai.nlabstudio.ru` для Anthropic SDK (так живёт
+  `nlab-llm-wiki`); ключ гейта выдают ответственные.
 - **Перенос данных между серверами без SSH** — только снапшотом через
   one-shot сидер в compose: снапшот кладётся в MinIO (анонимный префикс или
   header-auth; presigned query-string через nginx MinIO ломается), сервис

@@ -3,7 +3,7 @@ name: dokploy-prep
 title: "Prep: подготовка репозитория к деплою на Dokploy"
 description: Подготовка репозитория/сервиса к деплою на Dokploy — создать docker-compose.dokploy.yml, .env.dokploy.example и DEPLOY_DOKPLOY.md по конвенциям, проверить Dockerfile и healthcheck'и, привести всё к правилам (без Traefik-лейблов, без хост-портов). Вызывается командой /nlab:dokploy-prep. Сам деплой делает тот, кто хостит, — ему передаётся подготовленный репозиторий.
 owner: alexgl-dev
-version: 1.2.1
+version: 1.2.2
 status: in-use
 scope: любой репозиторий, который планируется хостить на Dokploy-сервере
 stage: prep
@@ -140,8 +140,8 @@ prod-стеки живут отдельно, Dokploy-вариант всегда
   git: в `.dockerignore`/`.gitignore`, а в `DEPLOY_DOKPLOY.md` — путь
   монтирования для Dokploy File Mount. Пример `*.example.yaml` — в репо.
 - Внешние API, от которых зависит сервис (эмбеддинги, LLM-провайдеры),
-  перечисли в `DEPLOY_DOKPLOY.md`: с сервера они могут быть недоступны по
-  IP (OpenRouter отвечал 403 с SberCloud), хостящему нужно знать, что
+  перечисли в `DEPLOY_DOKPLOY.md`: с сервера они могут быть недоступны
+  (проверять из контейнера: `curl` с SberCloud ловит 403 от WAF, приложение проходит), хостящему нужно знать, что
   проверять.
 - Если healthz-эндпоинта в приложении нет — добавь (это правка кода,
   согласуй с пользователем, если проект не твой).
