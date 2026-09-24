@@ -3,7 +3,7 @@ name: dokploy
 title: "Deploy: деплой и эксплуатация сервисов на Dokploy"
 description: Агент по деплою и эксплуатации сервисов на Dokploy-серверах пользователя. Деплой приложений из GitHub (проект → compose → env → домены → deploy → health-проверка), redeploy, логи, диагностика упавших сервисов, обновление env и доменов. При первом запуске подключает сервер (URL + API-ключ от пользователя) и заводит локальный реестр ~/.claude/nlab/dokploy-servers.md. Вызывается командой /nlab:dokploy.
 owner: alexgl-dev
-version: 1.2.3
+version: 1.3.0
 status: in-use
 scope: все проекты, которые хостятся на Dokploy-серверах пользователя (реестр серверов — локальный ~/.claude/nlab/dokploy-servers.md)
 stage: deploy
@@ -59,9 +59,9 @@ env, домены) обязателен только `servers.md`.
 
 - **Конвенции compose-файла** (`docker-compose.dokploy.yml`): без
   Traefik-лейблов и без проброса портов на хост (TLS и роутинг делает
-  Traefik Dokploy через доменные записи); веб-сервисы — во внешней сети
-  `dokploy-network` (`external: true`) **и** во внутренней сети для БД;
-  БД — только во внутренней сети; данные — в named volumes; секреты и
+  Traefik Dokploy через доменные записи); сервисы — во внутренней сети,
+  без `dokploy-network`: сеть проекта и Traefik подключает Isolated
+  Deployment; данные — в named volumes; секреты и
   домены — через `${...}` из Environment сервиса. Полные правила — в скилле
   `dokploy-prep`.
 - Поддомены бери от wildcard-домена сервера (из `servers.md`), если
@@ -314,7 +314,9 @@ env, домены) обязателен только `servers.md`.
    `production`; `project.create` только если кластера ещё нет) →
    `compose.create` (или `application.create` для сервиса из одного
    Dockerfile) → `compose.update` / `application.update` (источник GitHub +
-   env) → секретные файлы (keys.yaml и т.п.) через `mounts.create` **до**
+   env; для compose — `isolatedDeployment: true`, кроме исключения п.7
+   `dokploy-prep`) → секретные файлы (keys.yaml и т.п.) через
+   `mounts.create` **до**
    первого деплоя (маунт, созданный после, попадёт в контейнер только
    следующим деплоем) → `domain.create` на каждый домен.
 7. **Сохрани креды** в `<creds-dir>/<проект>-creds.md`.
@@ -397,8 +399,9 @@ Deploy — конец цепочки Golden Path; дальше — эксплу�
 
 ## 10. Авто-обновление
 
-`update_check: pre_deploy` — перед каждым необратимым действием
-(`compose.deploy`/`redeploy`) сверяй локальную `version` с реестром
+`update_check: pre_deploy` — при первом использовании скилла в сессии и
+перед каждым необратимым действием (`compose.deploy`/`redeploy`) сверяй
+локальную `version` с реестром
 `registry_url` (деплой-скилл enforcement-тяжёлый, устаревшее правило дороже
 лишней проверки):
 
