@@ -5,7 +5,7 @@
 # Ключевые принципы (подробно — в SKILL.md скилла dokploy-prep):
 # - Без Traefik-лейблов и без ports: наружу — роутинг и TLS делает Dokploy
 #   через вкладку Domains (домен → сервис → внутренний порт).
-# - Веб-сервисы: в dokploy-network + internal; БД: только internal.
+# - Сети: только internal; сеть проекта и Traefik подключает Isolated Deployment.
 # - Обязательные env — fail-loud через ${VAR:?...}.
 
 x-logging: &default-logging
@@ -65,7 +65,7 @@ services:
       --host 0.0.0.0 --port 8000
       --workers ${UVICORN_WORKERS:-2}
       --proxy-headers --forwarded-allow-ips=*
-    networks: [internal, dokploy-network]
+    networks: [internal]
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request,sys; r=urllib.request.urlopen('http://127.0.0.1:8000/healthz', timeout=3); sys.exit(0 if r.status==200 else 1)"]
       interval: 30s
@@ -75,15 +75,12 @@ services:
     logging: *default-logging
 
   # ---- Опционально: паттерны для сервисов с данными и соседями ----------
-  # (1) БД, в которую ходит СОСЕДНИЙ стек по dokploy-network. Имя контейнера
-  #     у Dokploy случайное, поэтому публикуем стабильный сетевой алиас:
+  # (1) БД с данными (Qdrant и т.п.) — только internal; соседние стеки ходят
+  #     к проекту по публичному домену (исключение — SKILL.md, п.7).
   #
   # qdrant:
   #   image: qdrant/qdrant:latest
-  #   networks:
-  #     internal: {}
-  #     dokploy-network:
-  #       aliases: [myrepo-qdrant]        # сосед: http://myrepo-qdrant:6333
+  #   networks: [internal]
   #
   # (2) One-shot сидер начальных данных (как migrate): идемпотентен, источник —
   #     снапшот по URL из env. Так данные переезжают между серверами без SSH.
@@ -104,9 +101,4 @@ volumes:
   postgres_data:
 
 networks:
-  # Внешняя сеть Dokploy (в ней живёт Traefik). Создана Dokploy — только
-  # подключаемся. Домен на этот сервис заводится через Dokploy Domains:
-  # host → serviceName=backend → port=8000, HTTPS + Let's Encrypt.
-  dokploy-network:
-    external: true
   internal:

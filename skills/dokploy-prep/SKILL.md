@@ -3,7 +3,7 @@ name: dokploy-prep
 title: "Prep: подготовка репозитория к деплою на Dokploy"
 description: Подготовка репозитория/сервиса к деплою на Dokploy — создать docker-compose.dokploy.yml, .env.dokploy.example и DEPLOY_DOKPLOY.md по конвенциям, проверить Dockerfile и healthcheck'и, привести всё к правилам (без Traefik-лейблов, без хост-портов). Вызывается командой /nlab:dokploy-prep. Сам деплой делает тот, кто хостит, — ему передаётся подготовленный репозиторий.
 owner: alexgl-dev
-version: 1.2.2
+version: 1.3.0
 status: in-use
 scope: любой репозиторий, который планируется хостить на Dokploy-сервере
 stage: prep
@@ -55,9 +55,9 @@ prod-стеки живут отдельно, Dokploy-вариант всегда
 Шаблон с комментариями — [assets/docker-compose.dokploy.yml](assets/docker-compose.dokploy.yml).
 Адаптируй его под проект, не копируй вслепую:
 
-1. **Сети**: веб-сервисы — в `dokploy-network` (`external: true`, создана
-   Dokploy) **и** во внутренней сети; БД/брокеры — только во внутренней,
-   наружу не видны.
+1. **Сети**: все сервисы — во внутренней сети, `dokploy-network` не
+   подключать: деплой идёт с Isolated Deployment, Dokploy сам заводит сеть
+   проекта и подключает к ней Traefik. Другим стекам сервисы не видны.
 2. **Данные — в named volumes** (переживают redeploy). Bind-mount'ы на пути
    сервера не использовать.
 3. **Healthcheck у каждого долгоживущего сервиса.** Для веб-приложений —
@@ -71,12 +71,13 @@ prod-стеки живут отдельно, Dokploy-вариант всегда
    иначе диск сервера со временем забьётся.
 6. **Кросс-ссылки между сервисами** (URL друг друга для UI) собирай из
    `*_DOMAIN`-переменных, не хардкодь.
-7. **Зависимость между стеками** (соседний compose ходит в твою БД/Qdrant
-   по `dokploy-network`) — не по имени контейнера (Dokploy генерирует его со
-   случайным суффиксом), а через **сетевой алиас**: у сервиса
-   `networks: dokploy-network: {aliases: [<репо>-<сервис>]}`, потребитель
-   получает `http://<репо>-<сервис>:<порт>` через свою env-переменную. Алиас
-   назови в `DEPLOY_DOKPLOY.md`. Пример: `rag-v2-qdrant` в
+7. **Зависимость между стеками** — по публичному домену соседа через свою
+   env-переменную: изолированные стеки друг друга не видят (фронт и бэк
+   одного продукта проще держать в одном compose). Исключение — непубличная
+   связь (API без домена, БД, Qdrant): оба стека деплоятся без изоляции, у
+   сервиса алиас `networks: dokploy-network: {aliases: [<репо>-<сервис>]}`,
+   потребитель ходит на `http://<репо>-<сервис>:<порт>`. Адрес назови в
+   `DEPLOY_DOKPLOY.md`. Пример: `rag-v2-qdrant` в
    `sber-nlab/rag-v2`, его использует `rag-prep`.
 8. **Начальные данные — one-shot сидер**, тем же паттерном, что миграции:
    `restart: "no"`, идемпотентен (выходит сразу, если данные уже есть),
@@ -153,7 +154,7 @@ prod-стеки живут отдельно, Dokploy-вариант всегда
 | Никаких Traefik-лейблов и никаких `ports:` наружу — TLS/роутинг делает Traefik Dokploy через вкладку Domains, вся маршрутизация видна в UI | перед коммитом `grep -iE 'traefik|^\s*ports:'` по `docker-compose.dokploy.yml`; найдено → файл не сдаётся, убрать |
 | Секреты не коммитятся никогда; реальные значения генерирует и хранит хостящий | `.dockerignore` и `.gitignore` исключают `.env*` (кроме `*.example`); перед коммитом grep диффа: в example-файле только `CHANGE_ME_*`-значения |
 | Обязательные env объявлены fail-loud | `${VAR:?VAR не задан в Dokploy env}` в compose — деплой с недозаполненным env падает сразу и понятно, а не молча стартует со сломанной конфигурацией |
-| Compose синтаксически валиден | гейт перед коммитом: `docker compose -f docker-compose.dokploy.yml config` с фиктивными env проходит (сеть dokploy-network локально отсутствует — это ок, важны YAML и подстановки) |
+| Compose синтаксически валиден | гейт перед коммитом: `docker compose -f docker-compose.dokploy.yml config` с фиктивными env проходит (важны YAML и подстановки) |
 | `.dockerignore` обязателен | проверка наличия и содержимого: `.git`, `.env*` (кроме `*.example`), логи, кэши, `node_modules`/`venv`, тесты — иначе секреты и мусор попадут в образ |
 
 ## 6. Процесс (шаги)
@@ -234,8 +235,8 @@ gh issue create -R vibe-nlab/nlab-vibeskills -l skill-feedback \
 **Вход**: репо FastAPI-сервиса `notes-api` (uvicorn + Postgres + Alembic),
 Dockerfile есть, compose-файлов для прода нет.
 
-**Выход**: `docker-compose.dokploy.yml` (web в `dokploy-network` +
-internal, postgres только internal, one-shot `migrate`, healthcheck на
+**Выход**: `docker-compose.dokploy.yml` (сервисы во internal, без
+`dokploy-network`, one-shot `migrate`, healthcheck на
 `/healthz`, логи ограничены); `.env.dokploy.example`
 (`NOTES_DOMAIN=api.example.com`, `POSTGRES_PASSWORD=CHANGE_ME_...` с
 комментариями); `DEPLOY_DOKPLOY.md` с таблицей `api.example.com ↔ web ↔

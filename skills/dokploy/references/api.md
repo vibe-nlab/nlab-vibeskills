@@ -65,6 +65,7 @@ POST compose.redeploy                # {"composeId": "..."} — rebuild из У�
   "repository": "<имя-репо-без-owner>",
   "branch": "main",
   "composePath": "docker-compose.dokploy.yml",
+  "isolatedDeployment": true,
   "env": "KEY=value\nKEY2=value2"
 }
 ```
