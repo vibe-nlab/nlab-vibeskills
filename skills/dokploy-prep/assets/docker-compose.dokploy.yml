@@ -5,7 +5,9 @@
 # Ключевые принципы (подробно — в SKILL.md скилла dokploy-prep):
 # - Без Traefik-лейблов и без ports: наружу — роутинг и TLS делает Dokploy
 #   через вкладку Domains (домен → сервис → внутренний порт).
-# - Сети: только internal; сеть проекта и Traefik подключает Isolated Deployment.
+# - Сети: internal — только у стека из нескольких сервисов (здесь есть БД);
+#   у стека из одного сервиса блока networks нет. Сеть проекта и Traefik
+#   подключает Isolated Deployment.
 # - Обязательные env — fail-loud через ${VAR:?...}.
 
 x-logging: &default-logging

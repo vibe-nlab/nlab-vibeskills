@@ -3,14 +3,14 @@ name: design-ui
 title: "Design UI: дизайн-система NeuroLab для shadcn-интерфейсов"
 description: Дизайн-система NeuroLab поверх shadcn/ui — построить UI оригинальным скиллом shadcn (обязательная зависимость, ставится отдельно), а чат-интерфейсы и всё AI-специфичное — компонентами AI Elements (elements.ai-sdk.dev, реестр поверх shadcn), затем применить фирменные правки — шрифт Montserrat (самохост, кириллица) и базовый размер 16px (root НЕ масштабируется) в обеих темах; в тёмной теме — графитово-серые/тёпло-бежевые нейтрали (#272726 и производные токены) вместо дефолтной чёрной; в светлой по умолчанию цвета не трогать, но по запросу «бело-серый дизайн» доступен фирменный вариант поверх shadcn — фон #EFEFF0, поверхности #FFFFFF, текст #1B1B1B/#5C5C5E, шрифт Inter; у сервисов с несколькими разделами (дашборды, вкладки меню) навигация — сайдбаром (shadcn Sidebar), не табами и не навбаром; пользователю всегда давать ссылки на ui.shadcn.com и elements.ai-sdk.dev, чтобы он сам выбрал компоненты. Вызывается командой /nlab:design-ui. Использовать, когда пользователь просит «дизайн NeuroLab», «в стиле nlab», «наш графит», «бело-серый дизайн», собирает shadcn-интерфейс или чат с AI, который должен выглядеть по конвенциям NeuroLab.
 owner: alexgl-dev
-version: 1.5.0
+version: 1.5.1
 status: in-use
 scope: все shadcn-интерфейсы NeuroLab (новые и существующие проекты)
 stage: design
 depends_on: [shadcn]
 optional_deps: [ai-elements]
 autonomy_level: R4
-last_reviewed: 2026-09-17
+last_reviewed: 2026-11-17
 registry_url: https://github.com/vibe-nlab/nlab-vibeskills
 update_check: per_session
 allowed-tools: Bash(npx shadcn@latest *), Bash(pnpm dlx shadcn@latest *), Bash(bunx --bun shadcn@latest *), Bash(npx ai-elements@latest *), Bash(pnpm dlx ai-elements@latest *), Bash(bunx --bun ai-elements@latest *)
@@ -50,7 +50,7 @@ CLI-справочники и обязательные правила компо
 | Артефакт | Обязателен? | Кто предоставляет | Если отсутствует |
 |---|---|---|---|
 | Оригинальный скилл `shadcn` установлен (`~/.claude/skills/shadcn/SKILL.md` существует или скилл `shadcn` доступен в Skill tool) | да | установка окружения | **остановиться** и попросить пользователя установить официальный shadcn-скилл в `~/.claude/skills/shadcn` (см. README); без него UI не собирать — не воспроизводить его правила по памяти |
-| Проект: существующий shadcn-проект (`components.json`) или пустая папка под `init` | да | пользователь | если папка пустая — `init` по workflow скилла shadcn, стиль по умолчанию `base-nova` |
+| Проект: существующий shadcn-проект (`components.json`) или пустая папка под `init` | да | пользователь | если папка пустая — `init` по workflow скилла shadcn, стиль по умолчанию `base-nova` (`init --preset nova`; пресета `base-nova` CLI не знает) |
 | Описание нужного интерфейса (что строим, какие экраны) | да | пользователь / `intent.md` | спросить пользователя |
 | Скилл `ai-elements` установлен (`~/.claude/skills/ai-elements/SKILL.md`) | только если строим чат/AI-интерфейс | установка окружения | не блокировать: ставить компоненты по CLI и докам `https://elements.ai-sdk.dev/docs` (п. 4.5), пользователю сказать, что со скиллом будет точнее |
 
@@ -321,8 +321,9 @@ npx shadcn@latest add @ai-elements/message
    до установки компонентов, а не после.
 3. **Собери UI оригинальным скиллом `shadcn`**: загрузи его через Skill tool
    (`skill: "shadcn"`) и работай по нему — сначала
-   `npx shadcn@latest info --json` (или `init`, если проекта ещё нет —
-   стиль по умолчанию `base-nova`), потом поиск/установка компонентов.
+   `npx shadcn@latest info --json` (или `npx shadcn@latest init --preset nova --yes`,
+   если проекта ещё нет — в `components.json` получится стиль `base-nova`;
+   `--preset base-nova` CLI отклоняет), потом поиск/установка компонентов.
    Его правила композиции обязательны — семантические токены,
    `Field`/`FieldGroup` для форм, `gap-*` вместо `space-y-*` и т.д.
 4. Если в интерфейсе есть чат/ассистент/агентские экраны — их части бери
@@ -449,7 +450,7 @@ gh issue create -R vibe-nlab/nlab-vibeskills -l skill-feedback \
 скилл `shadcn` установлен.
 
 **Выход**: обе ссылки пользователю (п. 4.6) и вопрос, что берём; Vite-проект,
-`init` со стилем `base-nova`; Sidebar + Card + Table + Field-формы из shadcn;
+`init --preset nova` (стиль `base-nova`); Sidebar + Card + Table + Field-формы из shadcn;
 Montserrat самохостом, root 100% (16px); тёмная тема на графитовых токенах из
 п.4.2, светлая — стандартная; в `EVIDENCE.md` — контраст-замеры и grep-гейты
 «0 находок»; коммит.

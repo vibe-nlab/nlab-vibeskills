@@ -52,6 +52,7 @@ POST compose.deploy                  # {"composeId": "..."} — ПОЛНЫЙ д�
 POST compose.redeploy                # {"composeId": "..."} — rebuild из УЖЕ СКАЧАННОГО чекаута, git НЕ тянет!
                                      # После смены branch или пуша нового кода — только compose.deploy
                                      # (проверено 2026-07-17: redeploy после смены ветки собрал старый код).
+GET  compose.getConvertedCompose?composeId=<id>  # compose после конвертации Dokploy: дописанные сети и лейблы доменов; до первого деплоя — null
 ```
 
 Привязка к GitHub через встроенный провайдер (`compose.update`):
@@ -143,8 +144,12 @@ ssh <ssh> "docker logs --tail 200 <container>"
 ## Applications (не-compose сервисы)
 
 Симметрично compose: `application.one?applicationId=`, `application.create`,
-`application.update`, `application.deploy`, `application.redeploy`,
-`deployment.allByApplication?applicationId=`.
+`application.update`, `application.deploy`, `application.redeploy`;
+история деплоев — `deployment.all?applicationId=` (`deployment.allByApplication`
+на v0.30.x отвечает 404; `deployment.all` принимает только `applicationId`,
+для compose — `deployment.allByCompose`). `application.redeploy` завершается
+за секунды: новый контейнер стартует рядом, старый отвечает до healthcheck
+нового (~1 мин) — health-проверку после redeploy делай с паузой.
 
 Сервис из одного Dockerfile (проверено 2026-09-06, s3-gateway):
 
