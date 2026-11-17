@@ -3,13 +3,13 @@ name: dokploy-prep
 title: "Prep: подготовка репозитория к деплою на Dokploy"
 description: Подготовка репозитория/сервиса к деплою на Dokploy — создать docker-compose.dokploy.yml, .env.dokploy.example и DEPLOY_DOKPLOY.md по конвенциям, проверить Dockerfile и healthcheck'и, привести всё к правилам (без Traefik-лейблов, без хост-портов). Вызывается командой /nlab:dokploy-prep. Сам деплой делает тот, кто хостит, — ему передаётся подготовленный репозиторий.
 owner: alexgl-dev
-version: 1.3.0
+version: 1.3.1
 status: in-use
 scope: любой репозиторий, который планируется хостить на Dokploy-сервере
 stage: prep
 depends_on: []
 autonomy_level: R3
-last_reviewed: 2026-09-07
+last_reviewed: 2026-11-17
 registry_url: https://github.com/vibe-nlab/nlab-vibeskills
 update_check: per_session
 ---
@@ -55,9 +55,13 @@ prod-стеки живут отдельно, Dokploy-вариант всегда
 Шаблон с комментариями — [assets/docker-compose.dokploy.yml](assets/docker-compose.dokploy.yml).
 Адаптируй его под проект, не копируй вслепую:
 
-1. **Сети**: все сервисы — во внутренней сети, `dokploy-network` не
-   подключать: деплой идёт с Isolated Deployment, Dokploy сам заводит сеть
-   проекта и подключает к ней Traefik. Другим стекам сервисы не видны.
+1. **Сети**: `dokploy-network` не подключать: деплой идёт с Isolated
+   Deployment, Dokploy сам заводит сеть проекта и подключает к ней Traefik.
+   Другим стекам сервисы не видны. Своя сеть `internal` — только когда
+   сервисов больше одного (БД, воркер, миграции); у стека из одного сервиса
+   блока `networks` нет вовсе. Каждая своя сеть — ещё одна подсеть из пула
+   Docker на стек, и на сервере с десятком проектов пул кончается:
+   `all predefined address pools have been fully subnetted`.
 2. **Данные — в named volumes** (переживают redeploy). Bind-mount'ы на пути
    сервера не использовать.
 3. **Healthcheck у каждого долгоживущего сервиса.** Для веб-приложений —
@@ -78,7 +82,11 @@ prod-стеки живут отдельно, Dokploy-вариант всегда
    сервиса алиас `networks: dokploy-network: {aliases: [<репо>-<сервис>]}`,
    потребитель ходит на `http://<репо>-<сервис>:<порт>`. Адрес назови в
    `DEPLOY_DOKPLOY.md`. Пример: `rag-v2-qdrant` в
-   `sber-nlab/rag-v2`, его использует `rag-prep`.
+   `sber-nlab/rag-v2`, его использует `rag-prep`. Без изоляции Dokploy при
+   конвертации дописывает сервису сеть `default`, и compose создаёт
+   `<appName>_default` из того же пула — объяви её той же внешней сетью:
+   `default: {name: dokploy-network, external: true}` рядом с
+   `dokploy-network: {external: true}`.
 8. **Начальные данные — one-shot сидер**, тем же паттерном, что миграции:
    `restart: "no"`, идемпотентен (выходит сразу, если данные уже есть),
    источник — снапшот по URL из env (`*_SNAPSHOT_URL`, MinIO) или файл в

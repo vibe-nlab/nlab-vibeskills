@@ -3,13 +3,13 @@ name: dokploy
 title: "Deploy: деплой и эксплуатация сервисов на Dokploy"
 description: Агент по деплою и эксплуатации сервисов на Dokploy-серверах пользователя. Деплой приложений из GitHub (проект → compose → env → домены → deploy → health-проверка), redeploy, логи, диагностика упавших сервисов, обновление env и доменов. При первом запуске подключает сервер (URL + API-ключ от пользователя) и заводит локальный реестр ~/.claude/nlab/dokploy-servers.md. Вызывается командой /nlab:dokploy.
 owner: alexgl-dev
-version: 1.3.0
+version: 1.3.1
 status: in-use
 scope: все проекты, которые хостятся на Dokploy-серверах пользователя (реестр серверов — локальный ~/.claude/nlab/dokploy-servers.md)
 stage: deploy
 depends_on: [dokploy-prep]
 autonomy_level: R2
-last_reviewed: 2026-09-07
+last_reviewed: 2026-11-17
 registry_url: https://github.com/vibe-nlab/nlab-vibeskills
 update_check: pre_deploy
 ---
@@ -59,9 +59,9 @@ env, домены) обязателен только `servers.md`.
 
 - **Конвенции compose-файла** (`docker-compose.dokploy.yml`): без
   Traefik-лейблов и без проброса портов на хост (TLS и роутинг делает
-  Traefik Dokploy через доменные записи); сервисы — во внутренней сети,
-  без `dokploy-network`: сеть проекта и Traefik подключает Isolated
-  Deployment; данные — в named volumes; секреты и
+  Traefik Dokploy через доменные записи); без `dokploy-network`: сеть
+  проекта и Traefik подключает Isolated Deployment, своя сеть `internal` —
+  только у стека из нескольких сервисов; данные — в named volumes; секреты и
   домены — через `${...}` из Environment сервиса. Полные правила — в скилле
   `dokploy-prep`.
 - Поддомены бери от wildcard-домена сервера (из `servers.md`), если
@@ -356,8 +356,12 @@ composeId/applicationId и статусами. Если непонятно, на
   память сервера (`free -m`, `dmesg | grep -i oom`): на малых VPS сборку
   убивает OOM-killer, помогает swap. Ещё две причины из практики: Docker
   исчерпал пулы подсетей («all predefined address pools have been fully
-  subnetted» — на сервере слишком много compose-сетей, лечится только
-  владельцем через `default-address-pools` в daemon.json) и домен
+  subnetted» — на сервере слишком много compose-сетей; корень лечит
+  владелец через `default-address-pools` в daemon.json, а сервис обходит
+  это без его прав: у стека из одного сервиса убрать свою сеть `internal`,
+  у стека без изоляции объявить `default` той же внешней `dokploy-network`
+  (`dokploy-prep` п.4); ошибка про сеть, которой нет в репо, — сравни с
+  `compose.getConvertedCompose`: Dokploy дописывает свои сети) и домен
   отвечает 404 с сертификатом `TRAEFIK DEFAULT CERT` — Traefik не видит
   здоровый контейнер: сервис в рестарт-цикле или не прошёл healthcheck
   (`docker.getContainers`). 404 с **валидным** сертификатом — наоборот:
